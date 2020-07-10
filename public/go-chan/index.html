@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge, chrome=1">
+        <title>Golang Channel源码阅读笔记 - Distro Hopper &amp; macOS Hater</title><meta name="Description" content="Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。"><meta property="og:title" content="Golang Channel源码阅读笔记" />
+<meta property="og:description" content="Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://kyli.fun/go-chan/" />
+<meta property="og:image" content="https://kyli.fun/logo.png"/>
+<meta property="article:published_time" content="2020-05-29T11:09:25+08:00" />
+<meta property="article:modified_time" content="2020-05-29T00:00:00+00:00" />
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://kyli.fun/logo.png"/>
+
+<meta name="twitter:title" content="Golang Channel源码阅读笔记"/>
+<meta name="twitter:description" content="Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。"/>
+<meta name="application-name" content="Kyli Blog">
+<meta name="apple-mobile-web-app-title" content="Kyli Blog"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://kyli.fun/go-chan/" /><link rel="prev" href="https://kyli.fun/go-map/" /><link rel="next" href="https://kyli.fun/go-slice/" /><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.min.css"><link rel="stylesheet" href="/css/style.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.13.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.7.2/animate.min.css"><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "Golang Channel源码阅读笔记",
+        "inLanguage": "zh-CN",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https:\/\/kyli.fun\/go-chan\/"
+        },"genre": "posts","keywords": "golang, runtime, chan, 源码阅读","wordcount":  8102 ,
+        "url": "https:\/\/kyli.fun\/go-chan\/","datePublished": "2020-05-29T11:09:25+08:00","dateModified": "2020-05-29T00:00:00+00:00","license": "All rights reserved.","publisher": {
+            "@type": "Organization",
+            "name": "Kyli Bing"},"author": {
+                "@type": "Person",
+                "name": "Kyli Bing"
+            },"description": "Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。"
+    }
+    </script></head>
+    <body header-desktop="fixed" header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('dark' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'dark' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-1" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="/posts/"> 所有文章 </a><a class="menu-item" href="/tags/"> 标签 </a><a class="menu-item" href="/categories/"> 分类 </a><a class="menu-item" href="/about/"> 关于 </a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i>  </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item language" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                        <select class="language-select" id="language-select-desktop" onchange="location = this.value;"><option value="/go-chan/" selected>简体中文</option></select>
+                    </a><span class="menu-item search" id="search-desktop">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-desktop">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-desktop" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-desktop" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-desktop">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </span><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                    <i class="fas fa-adjust fa-fw"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-2" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><div class="search-wrapper">
+                    <div class="search mobile" id="search-mobile">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-mobile">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-mobile" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-mobile" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-mobile">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </div>
+                    <a href="javascript:void(0);" class="search-cancel" id="search-cancel-mobile">
+                        取消
+                    </a>
+                </div><a class="menu-item" href="/posts/" title="">所有文章</a><a class="menu-item" href="/tags/" title="">标签</a><a class="menu-item" href="/categories/" title="">分类</a><a class="menu-item" href="/about/" title="">关于</a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i></a><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                <i class="fas fa-adjust fa-fw"></i>
+            </a><a href="javascript:void(0);" class="menu-item" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                    <select class="language-select" onchange="location = this.value;"><option value="/go-chan/" selected>简体中文</option></select>
+                </a></div>
+    </div>
+</header>
+<div class="search-dropdown desktop">
+    <div id="search-dropdown-desktop"></div>
+</div>
+<div class="search-dropdown mobile">
+    <div id="search-dropdown-mobile"></div>
+</div>
+<main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">目录</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animated flipInX">Golang Channel源码阅读笔记</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="https://kyli.fun" title="Author" target="_blank" rel="noopener noreffer author" class="author"><i class="fas fa-user-circle fa-fw"></i>Kyli Bing</a></span>&nbsp;<span class="post-category">收录于 <a href="/categories/golang%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/"><i class="far fa-folder fa-fw"></i>golang源码阅读</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw"></i>&nbsp;<time datetime="2020-05-29">2020-05-29</time>&nbsp;<i class="fas fa-pencil-alt fa-fw"></i>&nbsp;约 8102 字&nbsp;
+                <i class="far fa-clock fa-fw"></i>&nbsp;预计阅读 17 分钟&nbsp;</div>
+        </div><div class="featured-image"><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="/images/go-chan/chan3.jpg"
+        data-srcset="/images/go-chan/chan3.jpg, /images/go-chan/chan3.jpg 1.5x, /images/go-chan/chan3.jpg 2x"
+        data-sizes="auto"
+        alt="/images/go-chan/chan3.jpg"
+        title="Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。" /></div><div class="details toc" id="toc-static"  kept="">
+                <div class="details-summary toc-title">
+                    <span>目录</span>
+                    <span><i class="details-icon fas fa-angle-right"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#开篇注释">开篇注释</a></li>
+    <li><a href="#channel相关的定义">channel相关的定义</a></li>
+    <li><a href="#创建channel">创建channel</a></li>
+    <li><a href="#chan---elem">chan &lt;- elem</a></li>
+    <li><a href="#elem----chan">elem := &lt;- chan</a></li>
+    <li><a href="#关闭channel">关闭channel</a></li>
+    <li><a href="#工具函数">工具函数</a></li>
+    <li><a href="#select里的chan操作神有特殊的安排">select里的chan操作，神有特殊的安排</a></li>
+    <li><a href="#todo">TODO</a></li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><p>Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。眼睛长了麦粒肿，现在只能独眼龙看channel的源码。我还计划写一个select的源码阅读笔记，这个和channel的源码有着无比紧密的联系。</p>
+<h2 id="开篇注释">开篇注释</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// Invariants:
+</span><span class="c1">//  At least one of c.sendq and c.recvq is empty,
+</span><span class="c1">//  except for the case of an unbuffered channel with a single goroutine
+</span><span class="c1">//  blocked on it for both sending and receiving using a select statement,
+</span><span class="c1">//  in which case the length of c.sendq and c.recvq is limited only by the
+</span><span class="c1">//  size of the select statement.
+</span><span class="c1">//
+</span><span class="c1">// For buffered channels, also:
+</span><span class="c1">//  c.qcount &gt; 0 implies that c.recvq is empty.
+</span><span class="c1">//  c.qcount &lt; c.dataqsiz implies that c.sendq is empty.
+</span></code></pre></td></tr></table>
+</div>
+</div><p>代码的最开始就用注释给出了channel的“钻石恒久远一颗永流传”：<code>c.sendq</code>和<code>c.recvq</code>就像太阳和月亮，总有一个是空的。</p>
+<h2 id="channel相关的定义">channel相关的定义</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
+</span><span class="lnt">73
+</span><span class="lnt">74
+</span><span class="lnt">75
+</span><span class="lnt">76
+</span><span class="lnt">77
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">const</span> <span class="p">(</span>
+	<span class="nx">maxAlign</span>  <span class="p">=</span> <span class="mi">8</span>
+	<span class="nx">hchanSize</span> <span class="p">=</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nf">Sizeof</span><span class="p">(</span><span class="nx">hchan</span><span class="p">{})</span> <span class="o">+</span> <span class="nb">uintptr</span><span class="p">(</span><span class="o">-</span><span class="nb">int</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Sizeof</span><span class="p">(</span><span class="nx">hchan</span><span class="p">{}))</span><span class="o">&amp;</span><span class="p">(</span><span class="nx">maxAlign</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+	<span class="nx">debugChan</span> <span class="p">=</span> <span class="kc">false</span>
+<span class="p">)</span>
+
+<span class="kd">type</span> <span class="nx">hchan</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">qcount</span>   <span class="kt">uint</span>           <span class="c1">// total data in the queue
+</span><span class="c1"></span>	<span class="nx">dataqsiz</span> <span class="kt">uint</span>           <span class="c1">// size of the circular queue
+</span><span class="c1"></span>	<span class="nx">buf</span>      <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span> <span class="c1">// points to an array of dataqsiz elements
+</span><span class="c1"></span>	<span class="nx">elemsize</span> <span class="kt">uint16</span>
+	<span class="nx">closed</span>   <span class="kt">uint32</span>
+	<span class="nx">elemtype</span> <span class="o">*</span><span class="nx">_type</span> <span class="c1">// element type
+</span><span class="c1"></span>	<span class="nx">sendx</span>    <span class="kt">uint</span>   <span class="c1">// send index
+</span><span class="c1"></span>	<span class="nx">recvx</span>    <span class="kt">uint</span>   <span class="c1">// receive index
+</span><span class="c1"></span>	<span class="nx">recvq</span>    <span class="nx">waitq</span>  <span class="c1">// list of recv waiters
+</span><span class="c1"></span>	<span class="nx">sendq</span>    <span class="nx">waitq</span>  <span class="c1">// list of send waiters
+</span><span class="c1"></span>
+	<span class="c1">// lock protects all fields in hchan, as well as several
+</span><span class="c1"></span>	<span class="c1">// fields in sudogs blocked on this channel.
+</span><span class="c1"></span>	<span class="c1">//
+</span><span class="c1"></span>	<span class="c1">// Do not change another G&#39;s status while holding this lock
+</span><span class="c1"></span>	<span class="c1">// (in particular, do not ready a G), as this can deadlock
+</span><span class="c1"></span>	<span class="c1">// with stack shrinking.
+</span><span class="c1"></span>	<span class="nx">lock</span> <span class="nx">mutex</span>
+<span class="p">}</span>
+
+<span class="kd">type</span> <span class="nx">waitq</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">first</span> <span class="o">*</span><span class="nx">sudog</span>
+    <span class="nx">last</span>  <span class="o">*</span><span class="nx">sudog</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="p">(</span><span class="nx">q</span> <span class="o">*</span><span class="nx">waitq</span><span class="p">)</span> <span class="nf">enqueue</span><span class="p">(</span><span class="nx">sgp</span> <span class="o">*</span><span class="nx">sudog</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">sgp</span><span class="p">.</span><span class="nx">next</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">x</span> <span class="o">:=</span> <span class="nx">q</span><span class="p">.</span><span class="nx">last</span>
+	<span class="k">if</span> <span class="nx">x</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">sgp</span><span class="p">.</span><span class="nx">prev</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="nx">q</span><span class="p">.</span><span class="nx">first</span> <span class="p">=</span> <span class="nx">sgp</span>
+		<span class="nx">q</span><span class="p">.</span><span class="nx">last</span> <span class="p">=</span> <span class="nx">sgp</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+	<span class="nx">sgp</span><span class="p">.</span><span class="nx">prev</span> <span class="p">=</span> <span class="nx">x</span>
+	<span class="nx">x</span><span class="p">.</span><span class="nx">next</span> <span class="p">=</span> <span class="nx">sgp</span>
+	<span class="nx">q</span><span class="p">.</span><span class="nx">last</span> <span class="p">=</span> <span class="nx">sgp</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="p">(</span><span class="nx">q</span> <span class="o">*</span><span class="nx">waitq</span><span class="p">)</span> <span class="nf">dequeue</span><span class="p">()</span> <span class="o">*</span><span class="nx">sudog</span> <span class="p">{</span>
+	<span class="k">for</span> <span class="p">{</span>
+		<span class="nx">sgp</span> <span class="o">:=</span> <span class="nx">q</span><span class="p">.</span><span class="nx">first</span>
+		<span class="k">if</span> <span class="nx">sgp</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="k">return</span> <span class="kc">nil</span>
+		<span class="p">}</span>
+		<span class="nx">y</span> <span class="o">:=</span> <span class="nx">sgp</span><span class="p">.</span><span class="nx">next</span>
+		<span class="k">if</span> <span class="nx">y</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nx">q</span><span class="p">.</span><span class="nx">first</span> <span class="p">=</span> <span class="kc">nil</span>
+			<span class="nx">q</span><span class="p">.</span><span class="nx">last</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+			<span class="nx">y</span><span class="p">.</span><span class="nx">prev</span> <span class="p">=</span> <span class="kc">nil</span>
+			<span class="nx">q</span><span class="p">.</span><span class="nx">first</span> <span class="p">=</span> <span class="nx">y</span>
+			<span class="nx">sgp</span><span class="p">.</span><span class="nx">next</span> <span class="p">=</span> <span class="kc">nil</span> <span class="c1">// mark as removed (see dequeueSudog)
+</span><span class="c1"></span>		<span class="p">}</span>
+
+		<span class="c1">// if a goroutine was put on this queue because of a
+</span><span class="c1"></span>		<span class="c1">// select, there is a small window between the goroutine
+</span><span class="c1"></span>		<span class="c1">// being woken up by a different case and it grabbing the
+</span><span class="c1"></span>		<span class="c1">// channel locks. Once it has the lock
+</span><span class="c1"></span>		<span class="c1">// it removes itself from the queue, so we won&#39;t see it after that.
+</span><span class="c1"></span>		<span class="c1">// We use a flag in the G struct to tell us when someone
+</span><span class="c1"></span>		<span class="c1">// else has won the race to signal this goroutine but the goroutine
+</span><span class="c1"></span>		<span class="c1">// hasn&#39;t removed itself from the queue yet.
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nx">sgp</span><span class="p">.</span><span class="nx">isSelect</span> <span class="o">&amp;&amp;</span> <span class="p">!</span><span class="nx">atomic</span><span class="p">.</span><span class="nf">Cas</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">sgp</span><span class="p">.</span><span class="nx">g</span><span class="p">.</span><span class="nx">selectDone</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+			<span class="k">continue</span>
+		<span class="p">}</span>
+
+		<span class="k">return</span> <span class="nx">sgp</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>qcount</code>： 数据队列的计数器，如果是unbuffered，那么就永远都是0。</li>
+<li><code>dataqsize</code>： 对于buffered channel，内部维护了一个环形队列，这个队列的长度，一般就是我们<code>make(chan, size)</code>对应的size。</li>
+<li><code>buf</code>： 指向环形队列的指针。</li>
+<li><code>elemsize</code>： 管道传送的数据结构的大小。</li>
+<li><code>closed</code>： 管道是否关闭。</li>
+<li><code>elemtype</code>： 指向传送数据的类型定义。</li>
+<li><code>sendx</code>： 发送消息的缓存下标。</li>
+<li><code>recvx</code>： 接受消息的缓存下标。</li>
+<li><code>recvq</code>： 阻塞在管道的等待接收的sudog的waiting list。</li>
+<li><code>sendq</code>： 阻塞在管道的等待发送的sudog的waiting list。</li>
+<li><code>lock</code>： 保证chan是并发安全。</li>
+</ul>
+<p>然后一个waitq的数据结构和它的enqueue,dequeue方法实现。</p>
+<p>对于buffered channel，这里给一个buf的示意图。
+<figure><a class="lightgallery" href="/images/go-chan/chan_queue.png" title="/images/go-chan/chan_queue.png" data-thumbnail="/images/go-chan/chan_queue.png" data-sub-html="<h2>管道的buffer</h2>">
+        <img
+            class="lazyload"
+            src="/svg/loading.min.svg"
+            data-src="/images/go-chan/chan_queue.png"
+            data-srcset="/images/go-chan/chan_queue.png, /images/go-chan/chan_queue.png 1.5x, /images/go-chan/chan_queue.png 2x"
+            data-sizes="auto"
+            alt="/images/go-chan/chan_queue.png" />
+    </a><figcaption class="image-caption">管道的buffer</figcaption>
+    </figure></p>
+<h2 id="创建channel">创建channel</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">//go:linkname reflect_makechan reflect.makechan
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">reflect_makechan</span><span class="p">(</span><span class="nx">t</span> <span class="o">*</span><span class="nx">chantype</span><span class="p">,</span> <span class="nx">size</span> <span class="kt">int</span><span class="p">)</span> <span class="o">*</span><span class="nx">hchan</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="nf">makechan</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span> <span class="nx">size</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">makechan64</span><span class="p">(</span><span class="nx">t</span> <span class="o">*</span><span class="nx">chantype</span><span class="p">,</span> <span class="nx">size</span> <span class="kt">int64</span><span class="p">)</span> <span class="o">*</span><span class="nx">hchan</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nb">int64</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nx">size</span><span class="p">))</span> <span class="o">!=</span> <span class="nx">size</span> <span class="p">{</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">plainError</span><span class="p">(</span><span class="s">&#34;makechan: size out of range&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="k">return</span> <span class="nf">makechan</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nx">size</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">makechan</span><span class="p">(</span><span class="nx">t</span> <span class="o">*</span><span class="nx">chantype</span><span class="p">,</span> <span class="nx">size</span> <span class="kt">int</span><span class="p">)</span> <span class="o">*</span><span class="nx">hchan</span> <span class="p">{</span>
+	<span class="nx">elem</span> <span class="o">:=</span> <span class="nx">t</span><span class="p">.</span><span class="nx">elem</span>
+
+	<span class="c1">// compiler checks this but be safe.
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">elem</span><span class="p">.</span><span class="nx">size</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="o">&lt;&lt;</span><span class="mi">16</span> <span class="p">{</span>
+		<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;makechan: invalid channel element type&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">hchanSize</span><span class="o">%</span><span class="nx">maxAlign</span> <span class="o">!=</span> <span class="mi">0</span> <span class="o">||</span> <span class="nx">elem</span><span class="p">.</span><span class="nx">align</span> <span class="p">&gt;</span> <span class="nx">maxAlign</span> <span class="p">{</span>
+		<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;makechan: bad alignment&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="nx">mem</span><span class="p">,</span> <span class="nx">overflow</span> <span class="o">:=</span> <span class="nx">math</span><span class="p">.</span><span class="nf">MulUintptr</span><span class="p">(</span><span class="nx">elem</span><span class="p">.</span><span class="nx">size</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">size</span><span class="p">))</span>
+	<span class="k">if</span> <span class="nx">overflow</span> <span class="o">||</span> <span class="nx">mem</span> <span class="p">&gt;</span> <span class="nx">maxAlloc</span><span class="o">-</span><span class="nx">hchanSize</span> <span class="o">||</span> <span class="nx">size</span> <span class="p">&lt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">plainError</span><span class="p">(</span><span class="s">&#34;makechan: size out of range&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="c1">// Hchan does not contain pointers interesting for GC when elements stored in buf do not contain pointers.
+</span><span class="c1"></span>	<span class="c1">// buf points into the same allocation, elemtype is persistent.
+</span><span class="c1"></span>	<span class="c1">// SudoG&#39;s are referenced from their owning thread so they can&#39;t be collected.
+</span><span class="c1"></span>	<span class="c1">// TODO(dvyukov,rlh): Rethink when collector can move allocated objects.
+</span><span class="c1"></span>	<span class="kd">var</span> <span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span>
+	<span class="k">switch</span> <span class="p">{</span>
+	<span class="k">case</span> <span class="nx">mem</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+		<span class="c1">// Queue or element size is zero.
+</span><span class="c1"></span>		<span class="nx">c</span> <span class="p">=</span> <span class="p">(</span><span class="o">*</span><span class="nx">hchan</span><span class="p">)(</span><span class="nf">mallocgc</span><span class="p">(</span><span class="nx">hchanSize</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">true</span><span class="p">))</span>
+		<span class="c1">// Race detector uses this location for synchronization.
+</span><span class="c1"></span>		<span class="nx">c</span><span class="p">.</span><span class="nx">buf</span> <span class="p">=</span> <span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">()</span>
+	<span class="k">case</span> <span class="nx">elem</span><span class="p">.</span><span class="nx">ptrdata</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+		<span class="c1">// Elements do not contain pointers.
+</span><span class="c1"></span>		<span class="c1">// Allocate hchan and buf in one call.
+</span><span class="c1"></span>		<span class="nx">c</span> <span class="p">=</span> <span class="p">(</span><span class="o">*</span><span class="nx">hchan</span><span class="p">)(</span><span class="nf">mallocgc</span><span class="p">(</span><span class="nx">hchanSize</span><span class="o">+</span><span class="nx">mem</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">true</span><span class="p">))</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">buf</span> <span class="p">=</span> <span class="nf">add</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="nx">c</span><span class="p">),</span> <span class="nx">hchanSize</span><span class="p">)</span>
+	<span class="k">default</span><span class="p">:</span>
+		<span class="c1">// Elements contain pointers.
+</span><span class="c1"></span>		<span class="nx">c</span> <span class="p">=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">hchan</span><span class="p">)</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">buf</span> <span class="p">=</span> <span class="nf">mallocgc</span><span class="p">(</span><span class="nx">mem</span><span class="p">,</span> <span class="nx">elem</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="nx">c</span><span class="p">.</span><span class="nx">elemsize</span> <span class="p">=</span> <span class="nb">uint16</span><span class="p">(</span><span class="nx">elem</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span> <span class="p">=</span> <span class="nx">elem</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">=</span> <span class="nb">uint</span><span class="p">(</span><span class="nx">size</span><span class="p">)</span>
+
+	<span class="k">if</span> <span class="nx">debugChan</span> <span class="p">{</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s">&#34;makechan: chan=&#34;</span><span class="p">,</span> <span class="nx">c</span><span class="p">,</span> <span class="s">&#34;; elemsize=&#34;</span><span class="p">,</span> <span class="nx">elem</span><span class="p">.</span><span class="nx">size</span><span class="p">,</span> <span class="s">&#34;; dataqsiz=&#34;</span><span class="p">,</span> <span class="nx">size</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">c</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p><code>makechan(t *chantype, size int)</code>就是我们写go代码时，<code>make(chan)</code>背后的英雄。这也可以看出，为什么我们自己写go代码时候以及面试被拷问的时候，<code>chan</code>为什么要用make来创建，而不是new。</p>
+<ul>
+<li>从编译器传入的<code>*chantype</code>中拿出<code>elem</code>，channel中传递的数据结构。</li>
+<li>两个边界检测。</li>
+<li>检查管道的buffer会不会导致内存的溢出。</li>
+<li>分配内存，根据不同的情况有一点优化。如果是无buffer的管道或者管道消息结构的大小是0，直接分配<code>hchan</code>的内存。如果管道消息的结构不含有指针，就在一个alloc中一起分配<code>hchan</code>和buffer的内存。其他情况下，<code>hchan</code>和对应的buffer各自分配内存。</li>
+<li><code>elemsize</code>，<code>elemtype</code>，<code>dataqsiz</code>初始化。</li>
+</ul>
+<h2 id="chan---elem">chan &lt;- elem</h2>
+<p>好长好精彩的send来了。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span><span class="lnt">108
+</span><span class="lnt">109
+</span><span class="lnt">110
+</span><span class="lnt">111
+</span><span class="lnt">112
+</span><span class="lnt">113
+</span><span class="lnt">114
+</span><span class="lnt">115
+</span><span class="lnt">116
+</span><span class="lnt">117
+</span><span class="lnt">118
+</span><span class="lnt">119
+</span><span class="lnt">120
+</span><span class="lnt">121
+</span><span class="lnt">122
+</span><span class="lnt">123
+</span><span class="lnt">124
+</span><span class="lnt">125
+</span><span class="lnt">126
+</span><span class="lnt">127
+</span><span class="lnt">128
+</span><span class="lnt">129
+</span><span class="lnt">130
+</span><span class="lnt">131
+</span><span class="lnt">132
+</span><span class="lnt">133
+</span><span class="lnt">134
+</span><span class="lnt">135
+</span><span class="lnt">136
+</span><span class="lnt">137
+</span><span class="lnt">138
+</span><span class="lnt">139
+</span><span class="lnt">140
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// entry point for c &lt;- x from compiled code
+</span><span class="c1">//go:nosplit
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">chansend1</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">elem</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nf">chansend</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">elem</span><span class="p">,</span> <span class="kc">true</span><span class="p">,</span> <span class="nf">getcallerpc</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+</span><span class="cm"> * generic single channel send/recv
+</span><span class="cm"> * If block is not nil,
+</span><span class="cm"> * then the protocol will not
+</span><span class="cm"> * sleep but return if it could
+</span><span class="cm"> * not complete.
+</span><span class="cm"> *
+</span><span class="cm"> * sleep can wake up with g.param == nil
+</span><span class="cm"> * when a channel involved in the sleep has
+</span><span class="cm"> * been closed.  it is easiest to loop and re-run
+</span><span class="cm"> * the operation; we&#39;ll see that it&#39;s now closed.
+</span><span class="cm"> */</span>
+<span class="kd">func</span> <span class="nf">chansend</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">ep</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span> <span class="nx">block</span> <span class="kt">bool</span><span class="p">,</span> <span class="nx">callerpc</span> <span class="kt">uintptr</span><span class="p">)</span> <span class="kt">bool</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">c</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="p">!</span><span class="nx">block</span> <span class="p">{</span>
+			<span class="k">return</span> <span class="kc">false</span>
+		<span class="p">}</span>
+		<span class="nf">gopark</span><span class="p">(</span><span class="kc">nil</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">waitReasonChanSendNilChan</span><span class="p">,</span> <span class="nx">traceEvGoStop</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+		<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;unreachable&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">debugChan</span> <span class="p">{</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s">&#34;chansend: chan=&#34;</span><span class="p">,</span> <span class="nx">c</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nf">racereadpc</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">(),</span> <span class="nx">callerpc</span><span class="p">,</span> <span class="nf">funcPC</span><span class="p">(</span><span class="nx">chansend</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="c1">// Fast path: check for failed non-blocking operation without acquiring the lock.
+</span><span class="c1"></span>	<span class="c1">//
+</span><span class="c1"></span>	<span class="c1">// After observing that the channel is not closed, we observe that the channel is
+</span><span class="c1"></span>	<span class="c1">// not ready for sending. Each of these observations is a single word-sized read
+</span><span class="c1"></span>	<span class="c1">// (first c.closed and second full()).
+</span><span class="c1"></span>	<span class="c1">// Because a closed channel cannot transition from &#39;ready for sending&#39; to
+</span><span class="c1"></span>	<span class="c1">// &#39;not ready for sending&#39;, even if the channel is closed between the two observations,
+</span><span class="c1"></span>	<span class="c1">// they imply a moment between the two when the channel was both not yet closed
+</span><span class="c1"></span>	<span class="c1">// and not ready for sending. We behave as if we observed the channel at that moment,
+</span><span class="c1"></span>	<span class="c1">// and report that the send cannot proceed.
+</span><span class="c1"></span>	<span class="c1">//
+</span><span class="c1"></span>	<span class="c1">// It is okay if the reads are reordered here: if we observe that the channel is not
+</span><span class="c1"></span>	<span class="c1">// ready for sending and then observe that it is not closed, that implies that the
+</span><span class="c1"></span>	<span class="c1">// channel wasn&#39;t closed during the first observation. However, nothing here
+</span><span class="c1"></span>	<span class="c1">// guarantees forward progress. We rely on the side effects of lock release in
+</span><span class="c1"></span>	<span class="c1">// chanrecv() and closechan() to update this thread&#39;s view of c.closed and full().
+</span><span class="c1"></span>	<span class="k">if</span> <span class="p">!</span><span class="nx">block</span> <span class="o">&amp;&amp;</span> <span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nf">full</span><span class="p">(</span><span class="nx">c</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">false</span>
+	<span class="p">}</span>
+
+	<span class="kd">var</span> <span class="nx">t0</span> <span class="kt">int64</span>
+	<span class="k">if</span> <span class="nx">blockprofilerate</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">t0</span> <span class="p">=</span> <span class="nf">cputicks</span><span class="p">()</span>
+	<span class="p">}</span>
+
+	<span class="nf">lock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+
+	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">plainError</span><span class="p">(</span><span class="s">&#34;send on closed channel&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">sg</span> <span class="o">:=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvq</span><span class="p">.</span><span class="nf">dequeue</span><span class="p">();</span> <span class="nx">sg</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="c1">// Found a waiting receiver. We pass the value we want to send
+</span><span class="c1"></span>		<span class="c1">// directly to the receiver, bypassing the channel buffer (if any).
+</span><span class="c1"></span>		<span class="nf">send</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">sg</span><span class="p">,</span> <span class="nx">ep</span><span class="p">,</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span> <span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span> <span class="p">},</span> <span class="mi">3</span><span class="p">)</span>
+		<span class="k">return</span> <span class="kc">true</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span> <span class="p">&lt;</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+		<span class="c1">// Space is available in the channel buffer. Enqueue the element to send.
+</span><span class="c1"></span>		<span class="nx">qp</span> <span class="o">:=</span> <span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span><span class="p">)</span>
+		<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+			<span class="nf">raceacquire</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">racerelease</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="nf">typedmemmove</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">qp</span><span class="p">,</span> <span class="nx">ep</span><span class="p">)</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span><span class="o">++</span>
+		<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span> <span class="o">==</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+			<span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span> <span class="p">=</span> <span class="mi">0</span>
+		<span class="p">}</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span><span class="o">++</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="k">return</span> <span class="kc">true</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">!</span><span class="nx">block</span> <span class="p">{</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="k">return</span> <span class="kc">false</span>
+	<span class="p">}</span>
+
+	<span class="c1">// Block on the channel. Some receiver will complete our operation for us.
+</span><span class="c1"></span>	<span class="nx">gp</span> <span class="o">:=</span> <span class="nf">getg</span><span class="p">()</span>
+	<span class="nx">mysg</span> <span class="o">:=</span> <span class="nf">acquireSudog</span><span class="p">()</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="mi">0</span>
+	<span class="k">if</span> <span class="nx">t0</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="o">-</span><span class="mi">1</span>
+	<span class="p">}</span>
+	<span class="c1">// No stack splits between assigning elem and enqueuing mysg
+</span><span class="c1"></span>	<span class="c1">// on gp.waiting where copystack can find it.
+</span><span class="c1"></span>	<span class="nx">mysg</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="nx">ep</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">waitlink</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">g</span> <span class="p">=</span> <span class="nx">gp</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">isSelect</span> <span class="p">=</span> <span class="kc">false</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">c</span> <span class="p">=</span> <span class="nx">c</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="p">=</span> <span class="nx">mysg</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">sendq</span><span class="p">.</span><span class="nf">enqueue</span><span class="p">(</span><span class="nx">mysg</span><span class="p">)</span>
+	<span class="nf">gopark</span><span class="p">(</span><span class="nx">chanparkcommit</span><span class="p">,</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">),</span> <span class="nx">waitReasonChanSend</span><span class="p">,</span> <span class="nx">traceEvGoBlockSend</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+	<span class="c1">// Ensure the value being sent is kept alive until the
+</span><span class="c1"></span>	<span class="c1">// receiver copies it out. The sudog has a pointer to the
+</span><span class="c1"></span>	<span class="c1">// stack object, but sudogs aren&#39;t considered as roots of the
+</span><span class="c1"></span>	<span class="c1">// stack tracer.
+</span><span class="c1"></span>	<span class="nf">KeepAlive</span><span class="p">(</span><span class="nx">ep</span><span class="p">)</span>
+
+	<span class="c1">// someone woke us up.
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">mysg</span> <span class="o">!=</span> <span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="p">{</span>
+		<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;G waiting list is corrupted&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">activeStackChans</span> <span class="p">=</span> <span class="kc">false</span>
+	<span class="k">if</span> <span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;chansend: spurious wakeup&#34;</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">plainError</span><span class="p">(</span><span class="s">&#34;send on closed channel&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="k">if</span> <span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nf">blockevent</span><span class="p">(</span><span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span><span class="o">-</span><span class="nx">t0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">c</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nf">releaseSudog</span><span class="p">(</span><span class="nx">mysg</span><span class="p">)</span>
+	<span class="k">return</span> <span class="kc">true</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p><code>chansend1(c *hchan, elem unsafe.Pointer)</code>函数只是<code>chansend</code>的一个简单的封装。还是直奔<code>chansend</code>吧。</p>
+<ul>
+<li>如果无聊到给一个chan赋了nil，然后还对他&lt;-，这就是结果。</li>
+<li>快速检测如果send不要求阻塞，chan没有被关闭，并且没有准备好接收一个send动作，那么就直接返回false。</li>
+<li>获取管道的mtx。接下来，任何显式的返回，都会释放这个锁。</li>
+<li>安全检查，对一个已经close的管道，&lt;-会导致panic。</li>
+<li>接下来就是各种情况下的管道&lt;-处理。
+<ol>
+<li>尝试从管道的等待接收队列里，获取一个之前block在接收消息的goroutine，如果获取成功，那么直接把消息丢给这个goroutine，并把这个之前阻塞的goroutine唤醒，然后chansend就返回true了。</li>
+<li>如果<code>c.qcount &lt; c.dataqsiz</code>，这就是两层含义，第一这是一个buffered管道，第二buffer还没有被填满。那么通过<code>chanbuf</code>函数和<code>c.sendx</code>，获得管道buffer的send槽，把消息直接copy到这个槽，发送就完成了。不存在阻塞的问题。只是要记得增加qcount和向前移动sendx。</li>
+<li>到了这里，说明管道没有准备好接收一个send操作，原因有二，一是管道本身是一个没有buffer的并且没有goroutine在接收，二是这个buffered管道已经被塞满了。那么这时候看，block参数，如果不是true，那么就返回false。否则，就要准备被block。</li>
+</ol>
+</li>
+<li>调用<code>getg()</code>，获得一个指向当前执行send的这个groutine的指针gp。然后调用<code>acquireSudog</code>，获得一个sudog。我们可以忽略sudog的具体定义，只看sudog的宏观定义，了解获取这两个指针的充分必要性。sudog应该是类似于G的一个代理，一个G可以有许多个sudog，如下面的注释所言，一个G可以存在很多个等待队列，一个多对多的关系，所以利用sudog来解绑这种关系。sudog作为一个G的代理的职责就是存在于各个channel的收发等待队列里。在这里，我们要把我们的gp放到管道的send队列，就需要为这个gp做一个sudog，把两者之间建立好联系，然后把这个sudog存在sendq里面，<del>等待有一天王子出现给它一个吻</del>。（G指的是go runtime调度模型的GPM中的G，可以理解为一个物理上的go的runtime线程）。</li>
+</ul>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// sudog represents a g in a wait list, such as for sending/receiving
+</span><span class="c1">// on a channel.
+</span><span class="c1">//
+</span><span class="c1">// sudog is necessary because the g ↔ synchronization object relation
+</span><span class="c1">// is many-to-many. A g can be on many wait lists, so there may be
+</span><span class="c1">// many sudogs for one g; and many gs may be waiting on the same
+</span><span class="c1">// synchronization object, so there may be many sudogs for one object.
+</span><span class="c1">//
+</span><span class="c1">// sudogs are allocated from a special pool. Use acquireSudog and
+</span><span class="c1">// releaseSudog to allocate and free them.
+</span><span class="c1"></span><span class="kd">type</span> <span class="nx">sudog</span> <span class="kd">struct</span> <span class="p">{</span>
+<span class="o">...</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>把sudog塞进sendq这个双向链表。</li>
+<li>gopark会把当前groutine挂起，让出调度。</li>
+<li>然后就是无尽的长眠，<del>直到王子出现</del>。不知道过了多久，一个recv打破沉默把我们唤醒。</li>
+<li>在长眠之前，我们设定了gp和mysg的关系，这个关系，在唤醒之后应该是保持原样。</li>
+<li>查看gp.param，是否是channel关闭触发的唤醒，如果是，那就panic没商量。</li>
+<li>这个时候我们做一些整理的工作，已经不需要的sudog，跟它说拜拜了。chansend可以返回true了。</li>
+</ul>
+<p>在<code>chansend</code>中，如果我们找到了一个正在等待的routine，就会调用<code>send</code>直接把消息发给它。让我们看看<code>send</code>里面做了啥。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// send processes a send operation on an empty channel c.
+</span><span class="c1">// The value ep sent by the sender is copied to the receiver sg.
+</span><span class="c1">// The receiver is then woken up to go on its merry way.
+</span><span class="c1">// Channel c must be empty and locked.  send unlocks c with unlockf.
+</span><span class="c1">// sg must already be dequeued from c.
+</span><span class="c1">// ep must be non-nil and point to the heap or the caller&#39;s stack.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">send</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">sg</span> <span class="o">*</span><span class="nx">sudog</span><span class="p">,</span> <span class="nx">ep</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span> <span class="nx">unlockf</span> <span class="kd">func</span><span class="p">(),</span> <span class="nx">skip</span> <span class="kt">int</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="nf">racesync</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">sg</span><span class="p">)</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+			<span class="c1">// Pretend we go through the buffer, even though
+</span><span class="c1"></span>			<span class="c1">// we copy directly. Note that we need to increment
+</span><span class="c1"></span>			<span class="c1">// the head/tail locations only when raceenabled.
+</span><span class="c1"></span>			<span class="nx">qp</span> <span class="o">:=</span> <span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="p">)</span>
+			<span class="nf">raceacquire</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">racerelease</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">raceacquireg</span><span class="p">(</span><span class="nx">sg</span><span class="p">.</span><span class="nx">g</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">racereleaseg</span><span class="p">(</span><span class="nx">sg</span><span class="p">.</span><span class="nx">g</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+			<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="o">++</span>
+			<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="o">==</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+				<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="p">=</span> <span class="mi">0</span>
+			<span class="p">}</span>
+			<span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span> <span class="p">=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="c1">// c.sendx = (c.sendx+1) % c.dataqsiz
+</span><span class="c1"></span>		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nf">sendDirect</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">sg</span><span class="p">,</span> <span class="nx">ep</span><span class="p">)</span>
+		<span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="p">}</span>
+	<span class="nx">gp</span> <span class="o">:=</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">g</span>
+	<span class="nf">unlockf</span><span class="p">()</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="nx">sg</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="nf">cputicks</span><span class="p">()</span>
+	<span class="p">}</span>
+	<span class="nf">goready</span><span class="p">(</span><span class="nx">gp</span><span class="p">,</span> <span class="nx">skip</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>首先，<code>send</code>函数接收一个<code>*hchan</code>(废话)，一个<code>*sudog</code>指向一个recv routine，ep指向发送的消息，unlockf函数。</p>
+<ul>
+<li>如果<code>sg.elem</code>不为空，那么我们就调用<code>sendDirect</code>把消息丢给receiver，sudog不再持有指向消息的指针。</li>
+<li>获得sudog代理的g</li>
+<li>因为调用send之前，chan是被锁住的，这里要主动释放锁。</li>
+<li>告诉g是，你sudog大爷解放的你。</li>
+<li>通过goready唤醒g。大功告成。</li>
+</ul>
+<h2 id="elem----chan">elem := &lt;- chan</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span><span class="lnt">108
+</span><span class="lnt">109
+</span><span class="lnt">110
+</span><span class="lnt">111
+</span><span class="lnt">112
+</span><span class="lnt">113
+</span><span class="lnt">114
+</span><span class="lnt">115
+</span><span class="lnt">116
+</span><span class="lnt">117
+</span><span class="lnt">118
+</span><span class="lnt">119
+</span><span class="lnt">120
+</span><span class="lnt">121
+</span><span class="lnt">122
+</span><span class="lnt">123
+</span><span class="lnt">124
+</span><span class="lnt">125
+</span><span class="lnt">126
+</span><span class="lnt">127
+</span><span class="lnt">128
+</span><span class="lnt">129
+</span><span class="lnt">130
+</span><span class="lnt">131
+</span><span class="lnt">132
+</span><span class="lnt">133
+</span><span class="lnt">134
+</span><span class="lnt">135
+</span><span class="lnt">136
+</span><span class="lnt">137
+</span><span class="lnt">138
+</span><span class="lnt">139
+</span><span class="lnt">140
+</span><span class="lnt">141
+</span><span class="lnt">142
+</span><span class="lnt">143
+</span><span class="lnt">144
+</span><span class="lnt">145
+</span><span class="lnt">146
+</span><span class="lnt">147
+</span><span class="lnt">148
+</span><span class="lnt">149
+</span><span class="lnt">150
+</span><span class="lnt">151
+</span><span class="lnt">152
+</span><span class="lnt">153
+</span><span class="lnt">154
+</span><span class="lnt">155
+</span><span class="lnt">156
+</span><span class="lnt">157
+</span><span class="lnt">158
+</span><span class="lnt">159
+</span><span class="lnt">160
+</span><span class="lnt">161
+</span><span class="lnt">162
+</span><span class="lnt">163
+</span><span class="lnt">164
+</span><span class="lnt">165
+</span><span class="lnt">166
+</span><span class="lnt">167
+</span><span class="lnt">168
+</span><span class="lnt">169
+</span><span class="lnt">170
+</span><span class="lnt">171
+</span><span class="lnt">172
+</span><span class="lnt">173
+</span><span class="lnt">174
+</span><span class="lnt">175
+</span><span class="lnt">176
+</span><span class="lnt">177
+</span><span class="lnt">178
+</span><span class="lnt">179
+</span><span class="lnt">180
+</span><span class="lnt">181
+</span><span class="lnt">182
+</span><span class="lnt">183
+</span><span class="lnt">184
+</span><span class="lnt">185
+</span><span class="lnt">186
+</span><span class="lnt">187
+</span><span class="lnt">188
+</span><span class="lnt">189
+</span><span class="lnt">190
+</span><span class="lnt">191
+</span><span class="lnt">192
+</span><span class="lnt">193
+</span><span class="lnt">194
+</span><span class="lnt">195
+</span><span class="lnt">196
+</span><span class="lnt">197
+</span><span class="lnt">198
+</span><span class="lnt">199
+</span><span class="lnt">200
+</span><span class="lnt">201
+</span><span class="lnt">202
+</span><span class="lnt">203
+</span><span class="lnt">204
+</span><span class="lnt">205
+</span><span class="lnt">206
+</span><span class="lnt">207
+</span><span class="lnt">208
+</span><span class="lnt">209
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// entry points for &lt;- c from compiled code
+</span><span class="c1">//go:nosplit
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">chanrecv1</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">elem</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nf">chanrecv</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">elem</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">//go:nosplit
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">chanrecv2</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">elem</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">)</span> <span class="p">(</span><span class="nx">received</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">_</span><span class="p">,</span> <span class="nx">received</span> <span class="p">=</span> <span class="nf">chanrecv</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">elem</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+	<span class="k">return</span>
+<span class="p">}</span>
+
+<span class="c1">// chanrecv receives on channel c and writes the received data to ep.
+</span><span class="c1">// ep may be nil, in which case received data is ignored.
+</span><span class="c1">// If block == false and no elements are available, returns (false, false).
+</span><span class="c1">// Otherwise, if c is closed, zeros *ep and returns (true, false).
+</span><span class="c1">// Otherwise, fills in *ep with an element and returns (true, true).
+</span><span class="c1">// A non-nil ep must point to the heap or the caller&#39;s stack.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">chanrecv</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">ep</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span> <span class="nx">block</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">(</span><span class="nx">selected</span><span class="p">,</span> <span class="nx">received</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+	<span class="c1">// raceenabled: don&#39;t need to check ep, as it is always on the stack
+</span><span class="c1"></span>	<span class="c1">// or is new memory allocated by reflect.
+</span><span class="c1"></span>
+	<span class="k">if</span> <span class="nx">debugChan</span> <span class="p">{</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s">&#34;chanrecv: chan=&#34;</span><span class="p">,</span> <span class="nx">c</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">c</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="p">!</span><span class="nx">block</span> <span class="p">{</span>
+			<span class="k">return</span>
+		<span class="p">}</span>
+		<span class="nf">gopark</span><span class="p">(</span><span class="kc">nil</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">waitReasonChanReceiveNilChan</span><span class="p">,</span> <span class="nx">traceEvGoStop</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+		<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;unreachable&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="c1">// Fast path: check for failed non-blocking operation without acquiring the lock.
+</span><span class="c1"></span>	<span class="k">if</span> <span class="p">!</span><span class="nx">block</span> <span class="o">&amp;&amp;</span> <span class="nf">empty</span><span class="p">(</span><span class="nx">c</span><span class="p">)</span> <span class="p">{</span>
+		<span class="c1">// After observing that the channel is not ready for receiving, we observe whether the
+</span><span class="c1"></span>		<span class="c1">// channel is closed.
+</span><span class="c1"></span>		<span class="c1">//
+</span><span class="c1"></span>		<span class="c1">// Reordering of these checks could lead to incorrect behavior when racing with a close.
+</span><span class="c1"></span>		<span class="c1">// For example, if the channel was open and not empty, was closed, and then drained,
+</span><span class="c1"></span>		<span class="c1">// reordered reads could incorrectly indicate &#34;open and empty&#34;. To prevent reordering,
+</span><span class="c1"></span>		<span class="c1">// we use atomic loads for both checks, and rely on emptying and closing to happen in
+</span><span class="c1"></span>		<span class="c1">// separate critical sections under the same lock.  This assumption fails when closing
+</span><span class="c1"></span>		<span class="c1">// an unbuffered channel with a blocked send, but that is an error condition anyway.
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nx">atomic</span><span class="p">.</span><span class="nf">Load</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">closed</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="c1">// Because a channel cannot be reopened, the later observation of the channel
+</span><span class="c1"></span>			<span class="c1">// being not closed implies that it was also not closed at the moment of the
+</span><span class="c1"></span>			<span class="c1">// first observation. We behave as if we observed the channel at that moment
+</span><span class="c1"></span>			<span class="c1">// and report that the receive cannot proceed.
+</span><span class="c1"></span>			<span class="k">return</span>
+		<span class="p">}</span>
+		<span class="c1">// The channel is irreversibly closed. Re-check whether the channel has any pending data
+</span><span class="c1"></span>		<span class="c1">// to receive, which could have arrived between the empty and closed checks above.
+</span><span class="c1"></span>		<span class="c1">// Sequential consistency is also required here, when racing with such a send.
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nf">empty</span><span class="p">(</span><span class="nx">c</span><span class="p">)</span> <span class="p">{</span>
+			<span class="c1">// The channel is irreversibly closed and empty.
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+				<span class="nf">raceacquire</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">())</span>
+			<span class="p">}</span>
+			<span class="k">if</span> <span class="nx">ep</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+				<span class="nf">typedmemclr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">ep</span><span class="p">)</span>
+			<span class="p">}</span>
+			<span class="k">return</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">false</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="kd">var</span> <span class="nx">t0</span> <span class="kt">int64</span>
+	<span class="k">if</span> <span class="nx">blockprofilerate</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">t0</span> <span class="p">=</span> <span class="nf">cputicks</span><span class="p">()</span>
+	<span class="p">}</span>
+
+	<span class="nf">lock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+
+	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="o">!=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+			<span class="nf">raceacquire</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">())</span>
+		<span class="p">}</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="k">if</span> <span class="nx">ep</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nf">typedmemclr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">ep</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="k">return</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">false</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">sg</span> <span class="o">:=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendq</span><span class="p">.</span><span class="nf">dequeue</span><span class="p">();</span> <span class="nx">sg</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="c1">// Found a waiting sender. If buffer is size 0, receive value
+</span><span class="c1"></span>		<span class="c1">// directly from sender. Otherwise, receive from head of queue
+</span><span class="c1"></span>		<span class="c1">// and add sender&#39;s value to the tail of the queue (both map to
+</span><span class="c1"></span>		<span class="c1">// the same buffer slot because the queue is full).
+</span><span class="c1"></span>		<span class="nf">recv</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">sg</span><span class="p">,</span> <span class="nx">ep</span><span class="p">,</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span> <span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span> <span class="p">},</span> <span class="mi">3</span><span class="p">)</span>
+		<span class="k">return</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">true</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="c1">// Receive directly from queue
+</span><span class="c1"></span>		<span class="nx">qp</span> <span class="o">:=</span> <span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="p">)</span>
+		<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+			<span class="nf">raceacquire</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">racerelease</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="k">if</span> <span class="nx">ep</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nf">typedmemmove</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">ep</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="nf">typedmemclr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="o">++</span>
+		<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="o">==</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+			<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="p">=</span> <span class="mi">0</span>
+		<span class="p">}</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span><span class="o">--</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="k">return</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">true</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">!</span><span class="nx">block</span> <span class="p">{</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="k">return</span> <span class="kc">false</span><span class="p">,</span> <span class="kc">false</span>
+	<span class="p">}</span>
+
+	<span class="c1">// no sender available: block on this channel.
+</span><span class="c1"></span>	<span class="nx">gp</span> <span class="o">:=</span> <span class="nf">getg</span><span class="p">()</span>
+	<span class="nx">mysg</span> <span class="o">:=</span> <span class="nf">acquireSudog</span><span class="p">()</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="mi">0</span>
+	<span class="k">if</span> <span class="nx">t0</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="o">-</span><span class="mi">1</span>
+	<span class="p">}</span>
+	<span class="c1">// No stack splits between assigning elem and enqueuing mysg
+</span><span class="c1"></span>	<span class="c1">// on gp.waiting where copystack can find it.
+</span><span class="c1"></span>	<span class="nx">mysg</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="nx">ep</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">waitlink</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="p">=</span> <span class="nx">mysg</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">g</span> <span class="p">=</span> <span class="nx">gp</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">isSelect</span> <span class="p">=</span> <span class="kc">false</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">c</span> <span class="p">=</span> <span class="nx">c</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">recvq</span><span class="p">.</span><span class="nf">enqueue</span><span class="p">(</span><span class="nx">mysg</span><span class="p">)</span>
+	<span class="nf">gopark</span><span class="p">(</span><span class="nx">chanparkcommit</span><span class="p">,</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">),</span> <span class="nx">waitReasonChanReceive</span><span class="p">,</span> <span class="nx">traceEvGoBlockRecv</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+	<span class="c1">// someone woke us up
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">mysg</span> <span class="o">!=</span> <span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="p">{</span>
+		<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;G waiting list is corrupted&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">activeStackChans</span> <span class="p">=</span> <span class="kc">false</span>
+	<span class="k">if</span> <span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nf">blockevent</span><span class="p">(</span><span class="nx">mysg</span><span class="p">.</span><span class="nx">releasetime</span><span class="o">-</span><span class="nx">t0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">closed</span> <span class="o">:=</span> <span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="o">==</span> <span class="kc">nil</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">mysg</span><span class="p">.</span><span class="nx">c</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nf">releaseSudog</span><span class="p">(</span><span class="nx">mysg</span><span class="p">)</span>
+	<span class="k">return</span> <span class="kc">true</span><span class="p">,</span> <span class="p">!</span><span class="nx">closed</span>
+<span class="p">}</span>
+
+<span class="c1">// recv processes a receive operation on a full channel c.
+</span><span class="c1">// There are 2 parts:
+</span><span class="c1">// 1) The value sent by the sender sg is put into the channel
+</span><span class="c1">//    and the sender is woken up to go on its merry way.
+</span><span class="c1">// 2) The value received by the receiver (the current G) is
+</span><span class="c1">//    written to ep.
+</span><span class="c1">// For synchronous channels, both values are the same.
+</span><span class="c1">// For asynchronous channels, the receiver gets its data from
+</span><span class="c1">// the channel buffer and the sender&#39;s data is put in the
+</span><span class="c1">// channel buffer.
+</span><span class="c1">// Channel c must be full and locked. recv unlocks c with unlockf.
+</span><span class="c1">// sg must already be dequeued from c.
+</span><span class="c1">// A non-nil ep must point to the heap or the caller&#39;s stack.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">recv</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">sg</span> <span class="o">*</span><span class="nx">sudog</span><span class="p">,</span> <span class="nx">ep</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span> <span class="nx">unlockf</span> <span class="kd">func</span><span class="p">(),</span> <span class="nx">skip</span> <span class="kt">int</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+			<span class="nf">racesync</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">sg</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="k">if</span> <span class="nx">ep</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="c1">// copy data from sender
+</span><span class="c1"></span>			<span class="nf">recvDirect</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">sg</span><span class="p">,</span> <span class="nx">ep</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+		<span class="c1">// Queue is full. Take the item at the
+</span><span class="c1"></span>		<span class="c1">// head of the queue. Make the sender enqueue
+</span><span class="c1"></span>		<span class="c1">// its item at the tail of the queue. Since the
+</span><span class="c1"></span>		<span class="c1">// queue is full, those are both the same slot.
+</span><span class="c1"></span>		<span class="nx">qp</span> <span class="o">:=</span> <span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="p">)</span>
+		<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+			<span class="nf">raceacquire</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">racerelease</span><span class="p">(</span><span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">raceacquireg</span><span class="p">(</span><span class="nx">sg</span><span class="p">.</span><span class="nx">g</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+			<span class="nf">racereleaseg</span><span class="p">(</span><span class="nx">sg</span><span class="p">.</span><span class="nx">g</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="c1">// copy data from queue to receiver
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nx">ep</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nf">typedmemmove</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">ep</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="c1">// copy data from sender to queue
+</span><span class="c1"></span>		<span class="nf">typedmemmove</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">qp</span><span class="p">,</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span><span class="p">)</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="o">++</span>
+		<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="o">==</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+			<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="p">=</span> <span class="mi">0</span>
+		<span class="p">}</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span> <span class="p">=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="c1">// c.sendx = (c.sendx+1) % c.dataqsiz
+</span><span class="c1"></span>	<span class="p">}</span>
+	<span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nx">gp</span> <span class="o">:=</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">g</span>
+	<span class="nf">unlockf</span><span class="p">()</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="nx">sg</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="nf">cputicks</span><span class="p">()</span>
+	<span class="p">}</span>
+	<span class="nf">goready</span><span class="p">(</span><span class="nx">gp</span><span class="p">,</span> <span class="nx">skip</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p><code>chanrecv1</code>和<code>chanrecv2</code>都只是<code>chanrecv</code>的封装。老样子，直奔<code>chanrecv</code>，和<code>chansend</code>非常相似。注释一如既往，干货。<code>chanrecv</code>在channel上做接收的动作，并把接收到的消息写到<code>*ep</code>指向的内存。如果<code>*ep</code>为空，那么接收到的消息将被丢弃。</p>
+<ul>
+<li>如果发现channel现在为空，调用接收会被阻塞，并且block为false，这个时候可以快速返回。
+<ol>
+<li>如果channel已经被close了，那么直接返回false， false</li>
+<li>如果channel是空，那么清空*ep，然后返回true, false</li>
+</ol>
+</li>
+<li>锁住当前channel。</li>
+<li>如果现在channel已经被close了并且channel里面已经没有缓存的消息，可以直接返回true, false</li>
+<li>从此往下，channel都没有被close。</li>
+<li>先尝试从channel的发送等待队列里拿sudog。如果拿到sg，那么调用<code>recv</code>。然后返回true, true。这个<code>recv</code>比对应的<code>send</code>要稍微复杂一丢丢，接收的时候要区分channel有没有buffer。
+<ul>
+<li>如果channel没有buffer，那么如果ep不为空，我们就直接从sg代理的g上获取消息，保存到ep。</li>
+<li>如果是buffered，这就意味着channel当前的消息buffer被塞满了。这时的操作和上面是完全不同的。从channel的buffer里拿出recvx指向的消息槽，消费掉这个消息，如果ep不为空，消息会被拷贝到ep指向的内存。这时buffer就空了一个位置出来，我们就把sg代理的消息塞到刚才的buffer消息槽里。buffer又重新被填满。我们已经执行了一次recv，所以把recvx向前挪一个位置。同样也要维护sendx的位置，虽然是满buffer。也是向前挪一个。环形队列首尾相接，满。</li>
+<li>这是sg代理的消息，已经被处理了。sg就不需要再持有这个消息的指针了。</li>
+<li>取出sg代理的g。</li>
+<li>解锁channel。</li>
+<li>告诉g是从sg这个waiting里醒来的。</li>
+<li>goready唤醒这个被我们操作过的阻塞在发送上的g。</li>
+</ul>
+</li>
+<li>执行到这里的话，判断<code>c.qcount</code>，如果是一个buffered管道，就说明buffer还有空余的槽。获取当前recvx指向的槽，消费掉这个消息，如果ep不为空，那么拷贝消息到ep指向的内存。然后清除槽。把recvx移动到下一个槽。qcount计数器也同步减小1。返回true, ture</li>
+<li>到了这里，就是一个阻塞的接收操作了。除非block参数为false，直接返回false, false</li>
+<li>和chansend的时候一样的创建一个sudog，塞到channel的recvq里面，让出调度，<del>等待王子</del>。</li>
+<li>醒来之后，消息的接收已经被sender处理好了，查看一下channel有没有被关闭，如果gp.param不为空，说明我们被王子唤醒的，而不是因为channel被关闭。我们<del>只要把衣服穿好</del>跟sudog说拜拜。</li>
+<li>返回true, !closed</li>
+</ul>
+<h2 id="关闭channel">关闭channel</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">closechan</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">c</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">plainError</span><span class="p">(</span><span class="s">&#34;close of nil channel&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="nf">lock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">plainError</span><span class="p">(</span><span class="s">&#34;close of closed channel&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nx">callerpc</span> <span class="o">:=</span> <span class="nf">getcallerpc</span><span class="p">()</span>
+		<span class="nf">racewritepc</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">(),</span> <span class="nx">callerpc</span><span class="p">,</span> <span class="nf">funcPC</span><span class="p">(</span><span class="nx">closechan</span><span class="p">))</span>
+		<span class="nf">racerelease</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">())</span>
+	<span class="p">}</span>
+
+	<span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="p">=</span> <span class="mi">1</span>
+
+	<span class="kd">var</span> <span class="nx">glist</span> <span class="nx">gList</span>
+
+	<span class="c1">// release all readers
+</span><span class="c1"></span>	<span class="k">for</span> <span class="p">{</span>
+		<span class="nx">sg</span> <span class="o">:=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvq</span><span class="p">.</span><span class="nf">dequeue</span><span class="p">()</span>
+		<span class="k">if</span> <span class="nx">sg</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="k">break</span>
+		<span class="p">}</span>
+		<span class="k">if</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nf">typedmemclr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span><span class="p">)</span>
+			<span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="p">}</span>
+		<span class="k">if</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="nf">cputicks</span><span class="p">()</span>
+		<span class="p">}</span>
+		<span class="nx">gp</span> <span class="o">:=</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">g</span>
+		<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+			<span class="nf">raceacquireg</span><span class="p">(</span><span class="nx">gp</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">())</span>
+		<span class="p">}</span>
+		<span class="nx">glist</span><span class="p">.</span><span class="nf">push</span><span class="p">(</span><span class="nx">gp</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="c1">// release all writers (they will panic)
+</span><span class="c1"></span>	<span class="k">for</span> <span class="p">{</span>
+		<span class="nx">sg</span> <span class="o">:=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendq</span><span class="p">.</span><span class="nf">dequeue</span><span class="p">()</span>
+		<span class="k">if</span> <span class="nx">sg</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="k">break</span>
+		<span class="p">}</span>
+		<span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="k">if</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="nf">cputicks</span><span class="p">()</span>
+		<span class="p">}</span>
+		<span class="nx">gp</span> <span class="o">:=</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">g</span>
+		<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+			<span class="nf">raceacquireg</span><span class="p">(</span><span class="nx">gp</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">())</span>
+		<span class="p">}</span>
+		<span class="nx">glist</span><span class="p">.</span><span class="nf">push</span><span class="p">(</span><span class="nx">gp</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+
+	<span class="c1">// Ready all Gs now that we&#39;ve dropped the channel lock.
+</span><span class="c1"></span>	<span class="k">for</span> <span class="p">!</span><span class="nx">glist</span><span class="p">.</span><span class="nf">empty</span><span class="p">()</span> <span class="p">{</span>
+		<span class="nx">gp</span> <span class="o">:=</span> <span class="nx">glist</span><span class="p">.</span><span class="nf">pop</span><span class="p">()</span>
+		<span class="nx">gp</span><span class="p">.</span><span class="nx">schedlink</span> <span class="p">=</span> <span class="mi">0</span>
+		<span class="nf">goready</span><span class="p">(</span><span class="nx">gp</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>关闭一个nil的channel，panic没什么好说的。</li>
+<li>锁住当前channel。</li>
+<li>如果channel已经被关闭了，panic，没什么好说的，常识。</li>
+<li>标记<code>c.closed</code> = 1。</li>
+<li>循环拿出所有当前recvq队列里等待的sg，标记是channel关闭导致的唤醒。从sg里得到g，推到glist里。</li>
+<li>循环拿出所有当前sendq队列里等待的sg，标记是channel关闭导致的唤醒。把相应的g推到glist里。(这些g最终会panic，常识)。</li>
+<li>把glist里所有的g都设为就绪(唤醒)。</li>
+</ul>
+<h2 id="工具函数">工具函数</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// chanbuf(c, i) is pointer to the i&#39;th slot in the buffer.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">i</span> <span class="kt">uint</span><span class="p">)</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="nf">add</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">i</span><span class="p">)</span><span class="o">*</span><span class="nb">uintptr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemsize</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="c1">// full reports whether a send on c would block (that is, the channel is full).
+</span><span class="c1">// It uses a single word-sized read of mutable state, so although
+</span><span class="c1">// the answer is instantaneously true, the correct answer may have changed
+</span><span class="c1">// by the time the calling function receives the return value.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">full</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">)</span> <span class="kt">bool</span> <span class="p">{</span>
+	<span class="c1">// c.dataqsiz is immutable (never written after the channel is created)
+</span><span class="c1"></span>	<span class="c1">// so it is safe to read at any time during channel operation.
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="c1">// Assumes that a pointer read is relaxed-atomic.
+</span><span class="c1"></span>		<span class="k">return</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvq</span><span class="p">.</span><span class="nx">first</span> <span class="o">==</span> <span class="kc">nil</span>
+	<span class="p">}</span>
+	<span class="c1">// Assumes that a uint read is relaxed-atomic.
+</span><span class="c1"></span>	<span class="k">return</span> <span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span> <span class="o">==</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span>
+<span class="p">}</span>
+
+<span class="c1">// Sends and receives on unbuffered or empty-buffered channels are the
+</span><span class="c1">// only operations where one running goroutine writes to the stack of
+</span><span class="c1">// another running goroutine. The GC assumes that stack writes only
+</span><span class="c1">// happen when the goroutine is running and are only done by that
+</span><span class="c1">// goroutine. Using a write barrier is sufficient to make up for
+</span><span class="c1">// violating that assumption, but the write barrier has to work.
+</span><span class="c1">// typedmemmove will call bulkBarrierPreWrite, but the target bytes
+</span><span class="c1">// are not in the heap, so that will not help. We arrange to call
+</span><span class="c1">// memmove and typeBitsBulkBarrier instead.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">sendDirect</span><span class="p">(</span><span class="nx">t</span> <span class="o">*</span><span class="nx">_type</span><span class="p">,</span> <span class="nx">sg</span> <span class="o">*</span><span class="nx">sudog</span><span class="p">,</span> <span class="nx">src</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">)</span> <span class="p">{</span>
+	<span class="c1">// src is on our stack, dst is a slot on another stack.
+</span><span class="c1"></span>
+	<span class="c1">// Once we read sg.elem out of sg, it will no longer
+</span><span class="c1"></span>	<span class="c1">// be updated if the destination&#39;s stack gets copied (shrunk).
+</span><span class="c1"></span>	<span class="c1">// So make sure that no preemption points can happen between read &amp; use.
+</span><span class="c1"></span>	<span class="nx">dst</span> <span class="o">:=</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span>
+	<span class="nf">typeBitsBulkBarrier</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">dst</span><span class="p">),</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">src</span><span class="p">),</span> <span class="nx">t</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+	<span class="c1">// No need for cgo write barrier checks because dst is always
+</span><span class="c1"></span>	<span class="c1">// Go memory.
+</span><span class="c1"></span>	<span class="nf">memmove</span><span class="p">(</span><span class="nx">dst</span><span class="p">,</span> <span class="nx">src</span><span class="p">,</span> <span class="nx">t</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">recvDirect</span><span class="p">(</span><span class="nx">t</span> <span class="o">*</span><span class="nx">_type</span><span class="p">,</span> <span class="nx">sg</span> <span class="o">*</span><span class="nx">sudog</span><span class="p">,</span> <span class="nx">dst</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">)</span> <span class="p">{</span>
+	<span class="c1">// dst is on our stack or the heap, src is on another stack.
+</span><span class="c1"></span>	<span class="c1">// The channel is locked, so src will not move during this
+</span><span class="c1"></span>	<span class="c1">// operation.
+</span><span class="c1"></span>	<span class="nx">src</span> <span class="o">:=</span> <span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span>
+	<span class="nf">typeBitsBulkBarrier</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">dst</span><span class="p">),</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">src</span><span class="p">),</span> <span class="nx">t</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+	<span class="nf">memmove</span><span class="p">(</span><span class="nx">dst</span><span class="p">,</span> <span class="nx">src</span><span class="p">,</span> <span class="nx">t</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">// empty reports whether a read from c would block (that is, the channel is
+</span><span class="c1">// empty).  It uses a single atomic read of mutable state.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">empty</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">)</span> <span class="kt">bool</span> <span class="p">{</span>
+	<span class="c1">// c.dataqsiz is immutable.
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="nx">atomic</span><span class="p">.</span><span class="nf">Loadp</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">sendq</span><span class="p">.</span><span class="nx">first</span><span class="p">))</span> <span class="o">==</span> <span class="kc">nil</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">atomic</span><span class="p">.</span><span class="nf">Loaduint</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="select里的chan操作神有特殊的安排">select里的chan操作，神有特殊的安排</h2>
+<p>主要是<code>chansend</code>和<code>chanrecv</code>的封装，调用时block参数都是false，所以select不会因为channel而阻塞。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// compiler implements
+</span><span class="c1">//
+</span><span class="c1">//	select {
+</span><span class="c1">//	case c &lt;- v:
+</span><span class="c1">//		... foo
+</span><span class="c1">//	default:
+</span><span class="c1">//		... bar
+</span><span class="c1">//	}
+</span><span class="c1">//
+</span><span class="c1">// as
+</span><span class="c1">//
+</span><span class="c1">//	if selectnbsend(c, v) {
+</span><span class="c1">//		... foo
+</span><span class="c1">//	} else {
+</span><span class="c1">//		... bar
+</span><span class="c1">//	}
+</span><span class="c1">//
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">selectnbsend</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">,</span> <span class="nx">elem</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">)</span> <span class="p">(</span><span class="nx">selected</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="nf">chansend</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">elem</span><span class="p">,</span> <span class="kc">false</span><span class="p">,</span> <span class="nf">getcallerpc</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="c1">// compiler implements
+</span><span class="c1">//
+</span><span class="c1">//	select {
+</span><span class="c1">//	case v = &lt;-c:
+</span><span class="c1">//		... foo
+</span><span class="c1">//	default:
+</span><span class="c1">//		... bar
+</span><span class="c1">//	}
+</span><span class="c1">//
+</span><span class="c1">// as
+</span><span class="c1">//
+</span><span class="c1">//	if selectnbrecv(&amp;v, c) {
+</span><span class="c1">//		... foo
+</span><span class="c1">//	} else {
+</span><span class="c1">//		... bar
+</span><span class="c1">//	}
+</span><span class="c1">//
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">selectnbrecv</span><span class="p">(</span><span class="nx">elem</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span> <span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">)</span> <span class="p">(</span><span class="nx">selected</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">selected</span><span class="p">,</span> <span class="nx">_</span> <span class="p">=</span> <span class="nf">chanrecv</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">elem</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
+	<span class="k">return</span>
+<span class="p">}</span>
+
+<span class="c1">// compiler implements
+</span><span class="c1">//
+</span><span class="c1">//	select {
+</span><span class="c1">//	case v, ok = &lt;-c:
+</span><span class="c1">//		... foo
+</span><span class="c1">//	default:
+</span><span class="c1">//		... bar
+</span><span class="c1">//	}
+</span><span class="c1">//
+</span><span class="c1">// as
+</span><span class="c1">//
+</span><span class="c1">//	if c != nil &amp;&amp; selectnbrecv2(&amp;v, &amp;ok, c) {
+</span><span class="c1">//		... foo
+</span><span class="c1">//	} else {
+</span><span class="c1">//		... bar
+</span><span class="c1">//	}
+</span><span class="c1">//
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">selectnbrecv2</span><span class="p">(</span><span class="nx">elem</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span> <span class="nx">received</span> <span class="o">*</span><span class="kt">bool</span><span class="p">,</span> <span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span><span class="p">)</span> <span class="p">(</span><span class="nx">selected</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+	<span class="c1">// TODO(khr): just return 2 values from this function, now that it is in Go.
+</span><span class="c1"></span>	<span class="nx">selected</span><span class="p">,</span> <span class="o">*</span><span class="nx">received</span> <span class="p">=</span> <span class="nf">chanrecv</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">elem</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
+	<span class="k">return</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="todo">TODO</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">chanparkcommit</span><span class="p">(</span><span class="nx">gp</span> <span class="o">*</span><span class="nx">g</span><span class="p">,</span> <span class="nx">chanLock</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">)</span> <span class="kt">bool</span> <span class="p">{</span>
+	<span class="c1">// There are unlocked sudogs that point into gp&#39;s stack. Stack
+</span><span class="c1"></span>	<span class="c1">// copying must lock the channels of those sudogs.
+</span><span class="c1"></span>	<span class="nx">gp</span><span class="p">.</span><span class="nx">activeStackChans</span> <span class="p">=</span> <span class="kc">true</span>
+	<span class="nf">unlock</span><span class="p">((</span><span class="o">*</span><span class="nx">mutex</span><span class="p">)(</span><span class="nx">chanLock</span><span class="p">))</span>
+	<span class="k">return</span> <span class="kc">true</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div></div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>更新于 2020-05-29</span>
+            </div>
+            <div class="post-info-license"></div>
+        </div>
+        <div class="post-info-line">
+            <div class="post-info-md"><span>
+                            <a class="link-to-markdown" href="/go-chan/index.md" target="_blank">阅读原始文档</a>
+                        </span></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="分享到 Twitter" data-sharer="twitter" data-url="https://kyli.fun/go-chan/" data-title="Golang Channel源码阅读笔记" data-hashtags="golang,runtime,chan,源码阅读"><i class="fab fa-twitter fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Facebook" data-sharer="facebook" data-url="https://kyli.fun/go-chan/" data-hashtag="golang"><i class="fab fa-facebook-square fa-fw"></i></a><a href="javascript:void(0);" title="分享到 WhatsApp" data-sharer="whatsapp" data-url="https://kyli.fun/go-chan/" data-title="Golang Channel源码阅读笔记" data-web><i class="fab fa-whatsapp fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Line" data-sharer="line" data-url="https://kyli.fun/go-chan/" data-title="Golang Channel源码阅读笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/line.svg"></i></a><a href="javascript:void(0);" title="分享到 微博" data-sharer="weibo" data-url="https://kyli.fun/go-chan/" data-title="Golang Channel源码阅读笔记" data-image="/images/go-chan/chan3.jpg"><i class="fab fa-weibo fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Myspace" data-sharer="myspace" data-url="https://kyli.fun/go-chan/" data-title="Golang Channel源码阅读笔记" data-description="Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/myspace.svg"></i></a><a href="javascript:void(0);" title="分享到 Blogger" data-sharer="blogger" data-url="https://kyli.fun/go-chan/" data-title="Golang Channel源码阅读笔记" data-description="Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。"><i class="fab fa-blogger fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Evernote" data-sharer="evernote" data-url="https://kyli.fun/go-chan/" data-title="Golang Channel源码阅读笔记"><i class="fab fa-evernote fa-fw"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"><i class="fas fa-tags fa-fw"></i>&nbsp;<a href="/tags/golang/">golang</a>,&nbsp;<a href="/tags/runtime/">runtime</a>,&nbsp;<a href="/tags/chan/">chan</a>,&nbsp;<a href="/tags/%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">源码阅读</a></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">返回</a></span>&nbsp;|&nbsp;<span><a href="/">主页</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/go-map/" class="prev" rel="prev" title="Golang Map源码阅读笔记"><i class="fas fa-angle-left fa-fw"></i>Golang Map源码阅读笔记</a>
+            <a href="/go-slice/" class="next" rel="next" title="Golang Slice源码阅读笔记">Golang Slice源码阅读笔记<i class="fas fa-angle-right fa-fw"></i></a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Hired by Y2Labs</div><div class="footer-line">由 <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.74.0-DEV">Hugo</a> 强力驱动 | 主题 - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.10"><i class="far fa-kiss-wink-heart fa-fw"></i> LoveIt</a>
+                </div><div class="footer-line"><i class="far fa-copyright fa-fw"></i><span itemprop="copyrightYear">2020</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="https://kyli.fun" target="_blank">Kyli Bing</a></span>&nbsp;|&nbsp;<span class="license"><a rel="license external nofollow noopener noreffer" href="https://www.mit.edu/~amini/LICENSE.md" target="_blank">MIT</a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="回到顶部">
+                <i class="fas fa-arrow-up fa-fw"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="查看评论">
+                <i class="fas fa-comment fa-fw"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/smooth-scroll@16.1.3/dist/smooth-scroll.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/autocomplete.js@0.37.1/dist/autocomplete.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/algoliasearch@4.2.0/dist/algoliasearch-lite.umd.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.2.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.6/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.4.0/sharer.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/typeit@7.0.4/dist/typeit.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"复制到剪贴板","maxShownLines":10},"comment":{},"data":{"id-1":"Gopher/Rustacean","id-2":"Gopher/Rustacean"},"search":{"algoliaAppID":"","algoliaIndex":"index.zh-cn","algoliaSearchKey":"","highlightTag":"em","maxResultLength":10,"noResultsFound":"没有找到结果","snippetLength":50,"type":"algolia"},"typeit":{"cursorChar":"|","cursorSpeed":1000,"data":{"id-1":["id-1"],"id-2":["id-2"]},"duration":-1,"speed":100}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>

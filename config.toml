@@ -11,7 +11,7 @@ theme = "LoveIt"
 
 # website title
 # 网站标题
-title = "I'm fun, this is not"
+title = "Distro Hopper & macOS Hater"
 
 # whether to use robots.txt
 # 是否使用 robots.txt
@@ -336,9 +336,9 @@ enableEmoji = true
           # 主页显示头像的 URL
           avatarURL = "/images/avatar.jpg"
           # 主页显示的网站标题 (支持 HTML 格式)
-          title = "I'm fun, this is not"
+          title = "Distro Hopper & macOS Hater"
           # 主页显示的网站副标题
-          subtitle = "烂笔头不如好记性，因为你会忘记写在哪里"
+          subtitle = "因为便宜买了域名，又因为不能浪费了域名的钱，只能写点什么东西。"
           # 是否为副标题显示打字机动画
           typeit = true
           # 是否显示社交账号
@@ -454,13 +454,13 @@ enableEmoji = true
       logo = ""
       # title name
       # 标题名称
-      name = "I'm fun, this is not"
+      name = "Gopher/Rustacean"
       # you can add extra information before the name (HTML format is supported), such as icons
       # 你可以在名称 (允许 HTML 格式) 之前添加其他信息, 例如图标
-      pre = "<i class='far fa-kiss-wink-heart fa-fw'></i>"
+      pre = "<i class='fa fa-code'></i>"
       # you can add extra information after the name (HTML format is supported), such as icons
       # 你可以在名称 (允许 HTML 格式) 之后添加其他信息, 例如图标
-      post = ""
+      post = "<i class='fa fa-kiss-wink-heart'></i>"
       # whether to use typeit animation for title name
       # 是否为标题显示打字机动画
       typeit = true

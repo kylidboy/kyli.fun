@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge, chrome=1">
+        <title>Golang Slice源码阅读笔记 - Distro Hopper &amp; macOS Hater</title><meta name="Description" content="我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)"><meta property="og:title" content="Golang Slice源码阅读笔记" />
+<meta property="og:description" content="我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://kyli.fun/go-slice/" />
+<meta property="og:image" content="https://kyli.fun/logo.png"/>
+<meta property="article:published_time" content="2020-05-29T19:03:12+08:00" />
+<meta property="article:modified_time" content="2020-06-08T00:00:00+00:00" />
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://kyli.fun/logo.png"/>
+
+<meta name="twitter:title" content="Golang Slice源码阅读笔记"/>
+<meta name="twitter:description" content="我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)"/>
+<meta name="application-name" content="Kyli Blog">
+<meta name="apple-mobile-web-app-title" content="Kyli Blog"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://kyli.fun/go-slice/" /><link rel="prev" href="https://kyli.fun/go-chan/" /><link rel="next" href="https://kyli.fun/go-select/" /><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.min.css"><link rel="stylesheet" href="/css/style.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.13.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.7.2/animate.min.css"><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "Golang Slice源码阅读笔记",
+        "inLanguage": "zh-CN",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https:\/\/kyli.fun\/go-slice\/"
+        },"genre": "posts","keywords": "golang, runtime, slice, 源码阅读","wordcount":  2860 ,
+        "url": "https:\/\/kyli.fun\/go-slice\/","datePublished": "2020-05-29T19:03:12+08:00","dateModified": "2020-06-08T00:00:00+00:00","license": "All rights reserved.","publisher": {
+            "@type": "Organization",
+            "name": "Kyli Bing"},"author": {
+                "@type": "Person",
+                "name": "Kyli Bing"
+            },"description": "我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)"
+    }
+    </script></head>
+    <body header-desktop="fixed" header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('dark' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'dark' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-1" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="/posts/"> 所有文章 </a><a class="menu-item" href="/tags/"> 标签 </a><a class="menu-item" href="/categories/"> 分类 </a><a class="menu-item" href="/about/"> 关于 </a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i>  </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item language" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                        <select class="language-select" id="language-select-desktop" onchange="location = this.value;"><option value="/go-slice/" selected>简体中文</option></select>
+                    </a><span class="menu-item search" id="search-desktop">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-desktop">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-desktop" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-desktop" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-desktop">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </span><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                    <i class="fas fa-adjust fa-fw"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-2" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><div class="search-wrapper">
+                    <div class="search mobile" id="search-mobile">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-mobile">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-mobile" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-mobile" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-mobile">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </div>
+                    <a href="javascript:void(0);" class="search-cancel" id="search-cancel-mobile">
+                        取消
+                    </a>
+                </div><a class="menu-item" href="/posts/" title="">所有文章</a><a class="menu-item" href="/tags/" title="">标签</a><a class="menu-item" href="/categories/" title="">分类</a><a class="menu-item" href="/about/" title="">关于</a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i></a><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                <i class="fas fa-adjust fa-fw"></i>
+            </a><a href="javascript:void(0);" class="menu-item" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                    <select class="language-select" onchange="location = this.value;"><option value="/go-slice/" selected>简体中文</option></select>
+                </a></div>
+    </div>
+</header>
+<div class="search-dropdown desktop">
+    <div id="search-dropdown-desktop"></div>
+</div>
+<div class="search-dropdown mobile">
+    <div id="search-dropdown-mobile"></div>
+</div>
+<main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">目录</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animated flipInX">Golang Slice源码阅读笔记</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="https://kyli.fun" title="Author" target="_blank" rel="noopener noreffer author" class="author"><i class="fas fa-user-circle fa-fw"></i>Kyli Bing</a></span>&nbsp;<span class="post-category">收录于 <a href="/categories/golang%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/"><i class="far fa-folder fa-fw"></i>golang源码阅读</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw"></i>&nbsp;<time datetime="2020-05-29">2020-05-29</time>&nbsp;<i class="fas fa-pencil-alt fa-fw"></i>&nbsp;约 2860 字&nbsp;
+                <i class="far fa-clock fa-fw"></i>&nbsp;预计阅读 6 分钟&nbsp;</div>
+        </div><div class="featured-image"><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="/images/go-slice/slice.png"
+        data-srcset="/images/go-slice/slice.png, /images/go-slice/slice.png 1.5x, /images/go-slice/slice.png 2x"
+        data-sizes="auto"
+        alt="/images/go-slice/slice.png"
+        title="我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)" /></div><div class="details toc" id="toc-static"  kept="">
+                <div class="details-summary toc-title">
+                    <span>目录</span>
+                    <span><i class="details-icon fas fa-angle-right"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#slice定义">slice定义</a></li>
+    <li><a href="#创建slice">创建slice</a></li>
+    <li><a href="#slice扩容">slice扩容</a></li>
+    <li><a href="#工具函数">工具函数</a></li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><p>我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)</p>
+<h2 id="slice定义">slice定义</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">type</span> <span class="nx">slice</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">array</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span>
+	<span class="nx">len</span>   <span class="kt">int</span>
+	<span class="nx">cap</span>   <span class="kt">int</span>
+<span class="p">}</span>
+
+<span class="c1">// A notInHeapSlice is a slice backed by go:notinheap memory.
+</span><span class="c1"></span><span class="kd">type</span> <span class="nx">notInHeapSlice</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">array</span> <span class="o">*</span><span class="nx">notInHeap</span>
+	<span class="nx">len</span>   <span class="kt">int</span>
+	<span class="nx">cap</span>   <span class="kt">int</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>slice的定义显然是非常简单的，我记得这种形式被称为“胖指针”。我有一个pointer指向在内存某个地方的数据，行指针之能。但是我同时还有一些辅助字段来约束或者辅助我对指针指向的数据的操作。但是从外部看来，我就只是一个<code>*slice</code>，那些辅助的字段都不需要让外部知道。</p>
+<ul>
+<li><code>len</code> 就是当前slice可以访问到的长度，超出这个len的都是越界。</li>
+<li><code>cap</code> 就是背后支持这个slice的array的长度，这是真实有效的内存空间的长度。执行append的时候，如果超过了这个cap，将会触发扩容。
+<code>len</code> &lt;= <code>cap</code></li>
+</ul>
+<h2 id="创建slice">创建slice</h2>
+<p>创建slice是有<code>makeslice(et *_type, len, cap int) unsafe.Pointer</code>来实现的。很简单直观，先检查一下要求的大小会不会内存溢出，这里还很细心的区分了如果溢出是因为len还是因为cap。没有问题就直接把要求的内存空间直接分配了。这些<code>mallocgc</code>什么的，我以后再慢慢看。不影响。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">makeslice</span><span class="p">(</span><span class="nx">et</span> <span class="o">*</span><span class="nx">_type</span><span class="p">,</span> <span class="nx">len</span><span class="p">,</span> <span class="nx">cap</span> <span class="kt">int</span><span class="p">)</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span> <span class="p">{</span>
+	<span class="nx">mem</span><span class="p">,</span> <span class="nx">overflow</span> <span class="o">:=</span> <span class="nx">math</span><span class="p">.</span><span class="nf">MulUintptr</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">cap</span><span class="p">))</span>
+	<span class="k">if</span> <span class="nx">overflow</span> <span class="o">||</span> <span class="nx">mem</span> <span class="p">&gt;</span> <span class="nx">maxAlloc</span> <span class="o">||</span> <span class="nx">len</span> <span class="p">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="nx">len</span> <span class="p">&gt;</span> <span class="nx">cap</span> <span class="p">{</span>
+		<span class="c1">// NOTE: Produce a &#39;len out of range&#39; error instead of a
+</span><span class="c1"></span>		<span class="c1">// &#39;cap out of range&#39; error when someone does make([]T, bignumber).
+</span><span class="c1"></span>		<span class="c1">// &#39;cap out of range&#39; is true too, but since the cap is only being
+</span><span class="c1"></span>		<span class="c1">// supplied implicitly, saying len is clearer.
+</span><span class="c1"></span>		<span class="c1">// See golang.org/issue/4085.
+</span><span class="c1"></span>		<span class="nx">mem</span><span class="p">,</span> <span class="nx">overflow</span> <span class="o">:=</span> <span class="nx">math</span><span class="p">.</span><span class="nf">MulUintptr</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">len</span><span class="p">))</span>
+		<span class="k">if</span> <span class="nx">overflow</span> <span class="o">||</span> <span class="nx">mem</span> <span class="p">&gt;</span> <span class="nx">maxAlloc</span> <span class="o">||</span> <span class="nx">len</span> <span class="p">&lt;</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="nf">panicmakeslicelen</span><span class="p">()</span>
+		<span class="p">}</span>
+		<span class="nf">panicmakeslicecap</span><span class="p">()</span>
+	<span class="p">}</span>
+
+	<span class="k">return</span> <span class="nf">mallocgc</span><span class="p">(</span><span class="nx">mem</span><span class="p">,</span> <span class="nx">et</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">makeslice64</span><span class="p">(</span><span class="nx">et</span> <span class="o">*</span><span class="nx">_type</span><span class="p">,</span> <span class="nx">len64</span><span class="p">,</span> <span class="nx">cap64</span> <span class="kt">int64</span><span class="p">)</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span> <span class="p">{</span>
+	<span class="nx">len</span> <span class="o">:=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">len64</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nb">int64</span><span class="p">(</span><span class="nx">len</span><span class="p">)</span> <span class="o">!=</span> <span class="nx">len64</span> <span class="p">{</span>
+		<span class="nf">panicmakeslicelen</span><span class="p">()</span>
+	<span class="p">}</span>
+
+	<span class="nx">cap</span> <span class="o">:=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">cap64</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nb">int64</span><span class="p">(</span><span class="nx">cap</span><span class="p">)</span> <span class="o">!=</span> <span class="nx">cap64</span> <span class="p">{</span>
+		<span class="nf">panicmakeslicecap</span><span class="p">()</span>
+	<span class="p">}</span>
+
+	<span class="k">return</span> <span class="nf">makeslice</span><span class="p">(</span><span class="nx">et</span><span class="p">,</span> <span class="nx">len</span><span class="p">,</span> <span class="nx">cap</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="slice扩容">slice扩容</h2>
+<p>slice的代码量和map是简直不能比的，主要的逻辑就是一个growslice。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span><span class="lnt">108
+</span><span class="lnt">109
+</span><span class="lnt">110
+</span><span class="lnt">111
+</span><span class="lnt">112
+</span><span class="lnt">113
+</span><span class="lnt">114
+</span><span class="lnt">115
+</span><span class="lnt">116
+</span><span class="lnt">117
+</span><span class="lnt">118
+</span><span class="lnt">119
+</span><span class="lnt">120
+</span><span class="lnt">121
+</span><span class="lnt">122
+</span><span class="lnt">123
+</span><span class="lnt">124
+</span><span class="lnt">125
+</span><span class="lnt">126
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// growslice handles slice growth during append.
+</span><span class="c1">// It is passed the slice element type, the old slice, and the desired new minimum capacity,
+</span><span class="c1">// and it returns a new slice with at least that capacity, with the old data
+</span><span class="c1">// copied into it.
+</span><span class="c1">// The new slice&#39;s length is set to the old slice&#39;s length,
+</span><span class="c1">// NOT to the new requested capacity.
+</span><span class="c1">// This is for codegen convenience. The old slice&#39;s length is used immediately
+</span><span class="c1">// to calculate where to write new values during an append.
+</span><span class="c1">// TODO: When the old backend is gone, reconsider this decision.
+</span><span class="c1">// The SSA backend might prefer the new length or to return only ptr/cap and save stack space.
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">growslice</span><span class="p">(</span><span class="nx">et</span> <span class="o">*</span><span class="nx">_type</span><span class="p">,</span> <span class="nx">old</span> <span class="nx">slice</span><span class="p">,</span> <span class="nx">cap</span> <span class="kt">int</span><span class="p">)</span> <span class="nx">slice</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nx">callerpc</span> <span class="o">:=</span> <span class="nf">getcallerpc</span><span class="p">()</span>
+		<span class="nf">racereadrangepc</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">)),</span> <span class="nx">callerpc</span><span class="p">,</span> <span class="nf">funcPC</span><span class="p">(</span><span class="nx">growslice</span><span class="p">))</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">msanenabled</span> <span class="p">{</span>
+		<span class="nf">msanread</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">)))</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">cap</span> <span class="p">&lt;</span> <span class="nx">old</span><span class="p">.</span><span class="nx">cap</span> <span class="p">{</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">errorString</span><span class="p">(</span><span class="s">&#34;growslice: cap out of range&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">et</span><span class="p">.</span><span class="nx">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="c1">// append should not create a slice with nil pointer but non-zero len.
+</span><span class="c1"></span>		<span class="c1">// We assume that append doesn&#39;t need to preserve old.array in this case.
+</span><span class="c1"></span>		<span class="k">return</span> <span class="nx">slice</span><span class="p">{</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">zerobase</span><span class="p">),</span> <span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="p">,</span> <span class="nx">cap</span><span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="nx">newcap</span> <span class="o">:=</span> <span class="nx">old</span><span class="p">.</span><span class="nx">cap</span>
+	<span class="nx">doublecap</span> <span class="o">:=</span> <span class="nx">newcap</span> <span class="o">+</span> <span class="nx">newcap</span>
+	<span class="k">if</span> <span class="nx">cap</span> <span class="p">&gt;</span> <span class="nx">doublecap</span> <span class="p">{</span>
+		<span class="nx">newcap</span> <span class="p">=</span> <span class="nx">cap</span>
+	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">old</span><span class="p">.</span><span class="nx">len</span> <span class="p">&lt;</span> <span class="mi">1024</span> <span class="p">{</span>
+			<span class="nx">newcap</span> <span class="p">=</span> <span class="nx">doublecap</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+			<span class="c1">// Check 0 &lt; newcap to detect overflow
+</span><span class="c1"></span>			<span class="c1">// and prevent an infinite loop.
+</span><span class="c1"></span>			<span class="k">for</span> <span class="mi">0</span> <span class="p">&lt;</span> <span class="nx">newcap</span> <span class="o">&amp;&amp;</span> <span class="nx">newcap</span> <span class="p">&lt;</span> <span class="nx">cap</span> <span class="p">{</span>
+				<span class="nx">newcap</span> <span class="o">+=</span> <span class="nx">newcap</span> <span class="o">/</span> <span class="mi">4</span>
+			<span class="p">}</span>
+			<span class="c1">// Set newcap to the requested cap when
+</span><span class="c1"></span>			<span class="c1">// the newcap calculation overflowed.
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">newcap</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="p">{</span>
+				<span class="nx">newcap</span> <span class="p">=</span> <span class="nx">cap</span>
+			<span class="p">}</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="kd">var</span> <span class="nx">overflow</span> <span class="kt">bool</span>
+	<span class="kd">var</span> <span class="nx">lenmem</span><span class="p">,</span> <span class="nx">newlenmem</span><span class="p">,</span> <span class="nx">capmem</span> <span class="kt">uintptr</span>
+	<span class="c1">// Specialize for common values of et.size.
+</span><span class="c1"></span>	<span class="c1">// For 1 we don&#39;t need any division/multiplication.
+</span><span class="c1"></span>	<span class="c1">// For sys.PtrSize, compiler will optimize division/multiplication into a shift by a constant.
+</span><span class="c1"></span>	<span class="c1">// For powers of 2, use a variable shift.
+</span><span class="c1"></span>	<span class="k">switch</span> <span class="p">{</span>
+	<span class="k">case</span> <span class="nx">et</span><span class="p">.</span><span class="nx">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+		<span class="nx">lenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="p">)</span>
+		<span class="nx">newlenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">cap</span><span class="p">)</span>
+		<span class="nx">capmem</span> <span class="p">=</span> <span class="nf">roundupsize</span><span class="p">(</span><span class="nb">uintptr</span><span class="p">(</span><span class="nx">newcap</span><span class="p">))</span>
+		<span class="nx">overflow</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">newcap</span><span class="p">)</span> <span class="p">&gt;</span> <span class="nx">maxAlloc</span>
+		<span class="nx">newcap</span> <span class="p">=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">capmem</span><span class="p">)</span>
+	<span class="k">case</span> <span class="nx">et</span><span class="p">.</span><span class="nx">size</span> <span class="o">==</span> <span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span><span class="p">:</span>
+		<span class="nx">lenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="p">)</span> <span class="o">*</span> <span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span>
+		<span class="nx">newlenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">cap</span><span class="p">)</span> <span class="o">*</span> <span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span>
+		<span class="nx">capmem</span> <span class="p">=</span> <span class="nf">roundupsize</span><span class="p">(</span><span class="nb">uintptr</span><span class="p">(</span><span class="nx">newcap</span><span class="p">)</span> <span class="o">*</span> <span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span><span class="p">)</span>
+		<span class="nx">overflow</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">newcap</span><span class="p">)</span> <span class="p">&gt;</span> <span class="nx">maxAlloc</span><span class="o">/</span><span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span>
+		<span class="nx">newcap</span> <span class="p">=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">capmem</span> <span class="o">/</span> <span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span><span class="p">)</span>
+	<span class="k">case</span> <span class="nf">isPowerOfTwo</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">):</span>
+		<span class="kd">var</span> <span class="nx">shift</span> <span class="kt">uintptr</span>
+		<span class="k">if</span> <span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span> <span class="o">==</span> <span class="mi">8</span> <span class="p">{</span>
+			<span class="c1">// Mask shift for better code generation.
+</span><span class="c1"></span>			<span class="nx">shift</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">sys</span><span class="p">.</span><span class="nf">Ctz64</span><span class="p">(</span><span class="nb">uint64</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">)))</span> <span class="o">&amp;</span> <span class="mi">63</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+			<span class="nx">shift</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">sys</span><span class="p">.</span><span class="nf">Ctz32</span><span class="p">(</span><span class="nb">uint32</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">)))</span> <span class="o">&amp;</span> <span class="mi">31</span>
+		<span class="p">}</span>
+		<span class="nx">lenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="nx">shift</span>
+		<span class="nx">newlenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">cap</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="nx">shift</span>
+		<span class="nx">capmem</span> <span class="p">=</span> <span class="nf">roundupsize</span><span class="p">(</span><span class="nb">uintptr</span><span class="p">(</span><span class="nx">newcap</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="nx">shift</span><span class="p">)</span>
+		<span class="nx">overflow</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">newcap</span><span class="p">)</span> <span class="p">&gt;</span> <span class="p">(</span><span class="nx">maxAlloc</span> <span class="o">&gt;&gt;</span> <span class="nx">shift</span><span class="p">)</span>
+		<span class="nx">newcap</span> <span class="p">=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">capmem</span> <span class="o">&gt;&gt;</span> <span class="nx">shift</span><span class="p">)</span>
+	<span class="k">default</span><span class="p">:</span>
+		<span class="nx">lenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="p">)</span> <span class="o">*</span> <span class="nx">et</span><span class="p">.</span><span class="nx">size</span>
+		<span class="nx">newlenmem</span> <span class="p">=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">cap</span><span class="p">)</span> <span class="o">*</span> <span class="nx">et</span><span class="p">.</span><span class="nx">size</span>
+		<span class="nx">capmem</span><span class="p">,</span> <span class="nx">overflow</span> <span class="p">=</span> <span class="nx">math</span><span class="p">.</span><span class="nf">MulUintptr</span><span class="p">(</span><span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">newcap</span><span class="p">))</span>
+		<span class="nx">capmem</span> <span class="p">=</span> <span class="nf">roundupsize</span><span class="p">(</span><span class="nx">capmem</span><span class="p">)</span>
+		<span class="nx">newcap</span> <span class="p">=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">capmem</span> <span class="o">/</span> <span class="nx">et</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="c1">// The check of overflow in addition to capmem &gt; maxAlloc is needed
+</span><span class="c1"></span>	<span class="c1">// to prevent an overflow which can be used to trigger a segfault
+</span><span class="c1"></span>	<span class="c1">// on 32bit architectures with this example program:
+</span><span class="c1"></span>	<span class="c1">//
+</span><span class="c1"></span>	<span class="c1">// type T [1&lt;&lt;27 + 1]int64
+</span><span class="c1"></span>	<span class="c1">//
+</span><span class="c1"></span>	<span class="c1">// var d T
+</span><span class="c1"></span>	<span class="c1">// var s []T
+</span><span class="c1"></span>	<span class="c1">//
+</span><span class="c1"></span>	<span class="c1">// func main() {
+</span><span class="c1"></span>	<span class="c1">//   s = append(s, d, d, d, d)
+</span><span class="c1"></span>	<span class="c1">//   print(len(s), &#34;\n&#34;)
+</span><span class="c1"></span>	<span class="c1">// }
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">overflow</span> <span class="o">||</span> <span class="nx">capmem</span> <span class="p">&gt;</span> <span class="nx">maxAlloc</span> <span class="p">{</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nf">errorString</span><span class="p">(</span><span class="s">&#34;growslice: cap out of range&#34;</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="kd">var</span> <span class="nx">p</span> <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span>
+	<span class="k">if</span> <span class="nx">et</span><span class="p">.</span><span class="nx">ptrdata</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">p</span> <span class="p">=</span> <span class="nf">mallocgc</span><span class="p">(</span><span class="nx">capmem</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
+		<span class="c1">// The append() that calls growslice is going to overwrite from old.len to cap (which will be the new length).
+</span><span class="c1"></span>		<span class="c1">// Only clear the part that will not be overwritten.
+</span><span class="c1"></span>		<span class="nf">memclrNoHeapPointers</span><span class="p">(</span><span class="nf">add</span><span class="p">(</span><span class="nx">p</span><span class="p">,</span> <span class="nx">newlenmem</span><span class="p">),</span> <span class="nx">capmem</span><span class="o">-</span><span class="nx">newlenmem</span><span class="p">)</span>
+	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+		<span class="c1">// Note: can&#39;t use rawmem (which avoids zeroing of memory), because then GC can scan uninitialized memory.
+</span><span class="c1"></span>		<span class="nx">p</span> <span class="p">=</span> <span class="nf">mallocgc</span><span class="p">(</span><span class="nx">capmem</span><span class="p">,</span> <span class="nx">et</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+		<span class="k">if</span> <span class="nx">lenmem</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nx">writeBarrier</span><span class="p">.</span><span class="nx">enabled</span> <span class="p">{</span>
+			<span class="c1">// Only shade the pointers in old.array since we know the destination slice p
+</span><span class="c1"></span>			<span class="c1">// only contains nil pointers because it has been cleared during alloc.
+</span><span class="c1"></span>			<span class="nf">bulkBarrierPreWriteSrcOnly</span><span class="p">(</span><span class="nb">uintptr</span><span class="p">(</span><span class="nx">p</span><span class="p">),</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">old</span><span class="p">.</span><span class="nx">array</span><span class="p">),</span> <span class="nx">lenmem</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="nf">memmove</span><span class="p">(</span><span class="nx">p</span><span class="p">,</span> <span class="nx">old</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nx">lenmem</span><span class="p">)</span>
+
+	<span class="k">return</span> <span class="nx">slice</span><span class="p">{</span><span class="nx">p</span><span class="p">,</span> <span class="nx">old</span><span class="p">.</span><span class="nx">len</span><span class="p">,</span> <span class="nx">newcap</span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p><code>growslice</code>主要就是为了在append过程中扩大slice的容量。它接收3个参数，元素类型，slice，和新的最小cap，并返回一个新的slice包含老的slice里所有的元素。经常会被人问的，slice扩容的大小也在这里。</p>
+<ul>
+<li>首先会做一些边界检查，新的cap不能小于旧的cap之类的。</li>
+<li>如果<code>et.size == 0</code>的话，这里有一个优化，直接返回一个slice，这个slice实际上指向的是zerobase。这个zerobase在src/runtime/malloc.go里面可以看到他的用处是为了给所有0-byte allocation提供一个地址。所以我们平时写代码的时候会有要求在不需要具体值的时候用<code>struct{}{}</code>，而不是<code>true/false</code>，这样更加节省内存。</li>
+<li>先计算cap的两倍大小，放入doublecap，一般情况这个就是扩展后的slice的cap。除非你指明的新cap大于doublecap。</li>
+<li>那么，如果cap小于doublecap的时候，并且当前slice的长度小于1024，这个doublecap就作为最终的newcap用来向runtime申请内存。但是如果slice的长度大于1024,我们平时所说的2倍扩容就不存在了。而是变成了，一个循环，来找到当前扩容的有效cap（newcap），每次以newcap的1.25倍扩容，直到newcap大于cap，最后如果newcap溢出成了负数，那么就直接把cap作为newcap。到这里，新的slice的new cap就确定下来了，并且保证<code>newcap &gt;= cap</code>。</li>
+<li>接下来cap和newcap只是我们定的元素的数量，要被转换成内存申请的真实内存的大小，会涉及到内存的roundupsize。因为内存分配在runtime里面不是按一个字节来分配的。具体这里不展开，只简单说一下，一部分空闲内存会被按照固定的大小，分成很多的等级，例如16byte，32byte，128byte。我们在申请内存的时候，如果我们实际申请的大小满足小于一个SmallSize常量，那么P会分配给一个能满足我们的最小等级（不要问P是什么，又是一个更长的话题）。如果大于SmallSize，就会对齐到pagesize。这里switch的主要是为了优化，不能用乘法就不用，能用位移操作就用位移操作。</li>
+<li>保护我们申请的内存不会溢出。</li>
+<li>分配内存，一些必要的初始化操作，返回slice。</li>
+</ul>
+<h2 id="工具函数">工具函数</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">panicmakeslicelen</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nb">panic</span><span class="p">(</span><span class="nf">errorString</span><span class="p">(</span><span class="s">&#34;makeslice: len out of range&#34;</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">panicmakeslicecap</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nb">panic</span><span class="p">(</span><span class="nf">errorString</span><span class="p">(</span><span class="s">&#34;makeslice: cap out of range&#34;</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">isPowerOfTwo</span><span class="p">(</span><span class="nx">x</span> <span class="kt">uintptr</span><span class="p">)</span> <span class="kt">bool</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="nx">x</span><span class="o">&amp;</span><span class="p">(</span><span class="nx">x</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">slicecopy</span><span class="p">(</span><span class="nx">to</span><span class="p">,</span> <span class="nx">fm</span> <span class="nx">slice</span><span class="p">,</span> <span class="nx">width</span> <span class="kt">uintptr</span><span class="p">)</span> <span class="kt">int</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">fm</span><span class="p">.</span><span class="nx">len</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span> <span class="nx">to</span><span class="p">.</span><span class="nx">len</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="mi">0</span>
+	<span class="p">}</span>
+
+	<span class="nx">n</span> <span class="o">:=</span> <span class="nx">fm</span><span class="p">.</span><span class="nx">len</span>
+	<span class="k">if</span> <span class="nx">to</span><span class="p">.</span><span class="nx">len</span> <span class="p">&lt;</span> <span class="nx">n</span> <span class="p">{</span>
+		<span class="nx">n</span> <span class="p">=</span> <span class="nx">to</span><span class="p">.</span><span class="nx">len</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">width</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="nx">n</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nx">callerpc</span> <span class="o">:=</span> <span class="nf">getcallerpc</span><span class="p">()</span>
+		<span class="nx">pc</span> <span class="o">:=</span> <span class="nf">funcPC</span><span class="p">(</span><span class="nx">slicecopy</span><span class="p">)</span>
+		<span class="nf">racereadrangepc</span><span class="p">(</span><span class="nx">fm</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="nx">width</span><span class="p">)),</span> <span class="nx">callerpc</span><span class="p">,</span> <span class="nx">pc</span><span class="p">)</span>
+		<span class="nf">racewriterangepc</span><span class="p">(</span><span class="nx">to</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="nx">width</span><span class="p">)),</span> <span class="nx">callerpc</span><span class="p">,</span> <span class="nx">pc</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">msanenabled</span> <span class="p">{</span>
+		<span class="nf">msanread</span><span class="p">(</span><span class="nx">fm</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="nx">width</span><span class="p">)))</span>
+		<span class="nf">msanwrite</span><span class="p">(</span><span class="nx">to</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="nx">width</span><span class="p">)))</span>
+	<span class="p">}</span>
+
+	<span class="nx">size</span> <span class="o">:=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="p">)</span> <span class="o">*</span> <span class="nx">width</span>
+	<span class="k">if</span> <span class="nx">size</span> <span class="o">==</span> <span class="mi">1</span> <span class="p">{</span> <span class="c1">// common case worth about 2x to do here
+</span><span class="c1"></span>		<span class="c1">// TODO: is this still worth it with new memmove impl?
+</span><span class="c1"></span>		<span class="o">*</span><span class="p">(</span><span class="o">*</span><span class="kt">byte</span><span class="p">)(</span><span class="nx">to</span><span class="p">.</span><span class="nx">array</span><span class="p">)</span> <span class="p">=</span> <span class="o">*</span><span class="p">(</span><span class="o">*</span><span class="kt">byte</span><span class="p">)(</span><span class="nx">fm</span><span class="p">.</span><span class="nx">array</span><span class="p">)</span> <span class="c1">// known to be a byte pointer
+</span><span class="c1"></span>	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+		<span class="nf">memmove</span><span class="p">(</span><span class="nx">to</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nx">fm</span><span class="p">.</span><span class="nx">array</span><span class="p">,</span> <span class="nx">size</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">n</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">slicestringcopy</span><span class="p">(</span><span class="nx">to</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">,</span> <span class="nx">fm</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">int</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">fm</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span> <span class="nb">len</span><span class="p">(</span><span class="nx">to</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="mi">0</span>
+	<span class="p">}</span>
+
+	<span class="nx">n</span> <span class="o">:=</span> <span class="nb">len</span><span class="p">(</span><span class="nx">fm</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">to</span><span class="p">)</span> <span class="p">&lt;</span> <span class="nx">n</span> <span class="p">{</span>
+		<span class="nx">n</span> <span class="p">=</span> <span class="nb">len</span><span class="p">(</span><span class="nx">to</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nx">callerpc</span> <span class="o">:=</span> <span class="nf">getcallerpc</span><span class="p">()</span>
+		<span class="nx">pc</span> <span class="o">:=</span> <span class="nf">funcPC</span><span class="p">(</span><span class="nx">slicestringcopy</span><span class="p">)</span>
+		<span class="nf">racewriterangepc</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">to</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="p">),</span> <span class="nx">callerpc</span><span class="p">,</span> <span class="nx">pc</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">msanenabled</span> <span class="p">{</span>
+		<span class="nf">msanwrite</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">to</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="p">))</span>
+	<span class="p">}</span>
+
+	<span class="nf">memmove</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">to</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nf">stringStructOf</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">fm</span><span class="p">).</span><span class="nx">str</span><span class="p">,</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">n</span><span class="p">))</span>
+	<span class="k">return</span> <span class="nx">n</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div></div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>更新于 2020-06-08</span>
+            </div>
+            <div class="post-info-license"></div>
+        </div>
+        <div class="post-info-line">
+            <div class="post-info-md"><span>
+                            <a class="link-to-markdown" href="/go-slice/index.md" target="_blank">阅读原始文档</a>
+                        </span></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="分享到 Twitter" data-sharer="twitter" data-url="https://kyli.fun/go-slice/" data-title="Golang Slice源码阅读笔记" data-hashtags="golang,runtime,slice,源码阅读"><i class="fab fa-twitter fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Facebook" data-sharer="facebook" data-url="https://kyli.fun/go-slice/" data-hashtag="golang"><i class="fab fa-facebook-square fa-fw"></i></a><a href="javascript:void(0);" title="分享到 WhatsApp" data-sharer="whatsapp" data-url="https://kyli.fun/go-slice/" data-title="Golang Slice源码阅读笔记" data-web><i class="fab fa-whatsapp fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Line" data-sharer="line" data-url="https://kyli.fun/go-slice/" data-title="Golang Slice源码阅读笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/line.svg"></i></a><a href="javascript:void(0);" title="分享到 微博" data-sharer="weibo" data-url="https://kyli.fun/go-slice/" data-title="Golang Slice源码阅读笔记" data-image="/images/go-slice/slice.png"><i class="fab fa-weibo fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Myspace" data-sharer="myspace" data-url="https://kyli.fun/go-slice/" data-title="Golang Slice源码阅读笔记" data-description="我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/myspace.svg"></i></a><a href="javascript:void(0);" title="分享到 Blogger" data-sharer="blogger" data-url="https://kyli.fun/go-slice/" data-title="Golang Slice源码阅读笔记" data-description="我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)"><i class="fab fa-blogger fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Evernote" data-sharer="evernote" data-url="https://kyli.fun/go-slice/" data-title="Golang Slice源码阅读笔记"><i class="fab fa-evernote fa-fw"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"><i class="fas fa-tags fa-fw"></i>&nbsp;<a href="/tags/golang/">golang</a>,&nbsp;<a href="/tags/runtime/">runtime</a>,&nbsp;<a href="/tags/slice/">slice</a>,&nbsp;<a href="/tags/%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">源码阅读</a></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">返回</a></span>&nbsp;|&nbsp;<span><a href="/">主页</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/go-chan/" class="prev" rel="prev" title="Golang Channel源码阅读笔记"><i class="fas fa-angle-left fa-fw"></i>Golang Channel源码阅读笔记</a>
+            <a href="/go-select/" class="next" rel="next" title="Golang Select源码阅读笔记">Golang Select源码阅读笔记<i class="fas fa-angle-right fa-fw"></i></a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Hired by Y2Labs</div><div class="footer-line">由 <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.74.0-DEV">Hugo</a> 强力驱动 | 主题 - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.10"><i class="far fa-kiss-wink-heart fa-fw"></i> LoveIt</a>
+                </div><div class="footer-line"><i class="far fa-copyright fa-fw"></i><span itemprop="copyrightYear">2020</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="https://kyli.fun" target="_blank">Kyli Bing</a></span>&nbsp;|&nbsp;<span class="license"><a rel="license external nofollow noopener noreffer" href="https://www.mit.edu/~amini/LICENSE.md" target="_blank">MIT</a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="回到顶部">
+                <i class="fas fa-arrow-up fa-fw"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="查看评论">
+                <i class="fas fa-comment fa-fw"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/smooth-scroll@16.1.3/dist/smooth-scroll.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/autocomplete.js@0.37.1/dist/autocomplete.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/algoliasearch@4.2.0/dist/algoliasearch-lite.umd.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.2.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.6/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.4.0/sharer.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/typeit@7.0.4/dist/typeit.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"复制到剪贴板","maxShownLines":10},"comment":{},"data":{"id-1":"Gopher/Rustacean","id-2":"Gopher/Rustacean"},"search":{"algoliaAppID":"","algoliaIndex":"index.zh-cn","algoliaSearchKey":"","highlightTag":"em","maxResultLength":10,"noResultsFound":"没有找到结果","snippetLength":50,"type":"algolia"},"typeit":{"cursorChar":"|","cursorSpeed":1000,"data":{"id-1":["id-1"],"id-2":["id-2"]},"duration":-1,"speed":100}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>

@@ -1,0 +1,69 @@
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+    <channel>
+        <title>Distro Hopper &amp; macOS Hater</title>
+        <link>https://kyli.fun/</link>
+        <description>一块砖和六块腹肌的故事</description>
+        <generator>Hugo -- gohugo.io</generator><language>zh-CN</language><managingEditor>kylidboy@outlook.com (Kyli Bing)</managingEditor>
+            <webMaster>kylidboy@outlook.com (Kyli Bing)</webMaster><copyright>All rights reserved.</copyright><lastBuildDate>Mon, 29 Jun 2020 00:00:00 &#43;0000</lastBuildDate>
+            <atom:link href="https://kyli.fun/index.xml" rel="self" type="application/rss+xml" />
+        <item>
+    <title>最近频繁的切换Distro，为了一个最舒服的DE</title>
+    <link>https://kyli.fun/distro-hop/</link>
+    <pubDate>Mon, 29 Jun 2020 00:00:00 &#43;0000</pubDate>
+    <author>作者</author>
+    <guid>https://kyli.fun/distro-hop/</guid>
+    <description><![CDATA[<div class="featured-image">
+                <img src="/images/distro-hop/distros.jpg" referrerpolicy="no-referrer">
+            </div>自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。]]></description>
+</item><item>
+    <title>终于可以在Emacs下调用Fcitx打拼音了</title>
+    <link>https://kyli.fun/emacs-im/</link>
+    <pubDate>Mon, 29 Jun 2020 00:00:00 &#43;0000</pubDate>
+    <author>作者</author>
+    <guid>https://kyli.fun/emacs-im/</guid>
+    <description><![CDATA[一直苦于没有中文输入法，在Emacs和VSCode之间来回切换，两种不同的键位mindset确实累，经常敲错。]]></description>
+</item><item>
+    <title>Golang Select源码阅读笔记</title>
+    <link>https://kyli.fun/go-select/</link>
+    <pubDate>Mon, 08 Jun 2020 00:00:00 &#43;0000</pubDate>
+    <author>作者</author>
+    <guid>https://kyli.fun/go-select/</guid>
+    <description><![CDATA[<div class="featured-image">
+                <img src="/images/go-select/gopher-select.jpg" referrerpolicy="no-referrer">
+            </div>之前已经读过了"new三剑客"。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗<i class="fa fa-dog"></i>。]]></description>
+</item><item>
+    <title>Golang Slice源码阅读笔记</title>
+    <link>https://kyli.fun/go-slice/</link>
+    <pubDate>Fri, 29 May 2020 19:03:12 &#43;0800</pubDate>
+    <author>作者</author>
+    <guid>https://kyli.fun/go-slice/</guid>
+    <description><![CDATA[<div class="featured-image">
+                <img src="/images/go-slice/slice.png" referrerpolicy="no-referrer">
+            </div>我自己也是醉了。Golang的“make三剑客”，Map,Chan,Slice，居然把最简单的slice放到最后来读了。哈哈。无所谓，反正也没人看。曾经我有一次被面试官问到，“slice在高并发情况下会有bug你知道吗？”，但他也没有告诉我是什么bug。看看能不能自己看出个未来。(我当时的回答是，如果真有，那go可以去死了。)]]></description>
+</item><item>
+    <title>Golang Channel源码阅读笔记</title>
+    <link>https://kyli.fun/go-chan/</link>
+    <pubDate>Fri, 29 May 2020 11:09:25 &#43;0800</pubDate>
+    <author>作者</author>
+    <guid>https://kyli.fun/go-chan/</guid>
+    <description><![CDATA[<div class="featured-image">
+                <img src="/images/go-chan/chan3.jpg" referrerpolicy="no-referrer">
+            </div>Golang的并发是一大特色。写起来真的大快人心。channel作为并发routine之间共享信息的主要手段，是gopher不可不知的杀器。]]></description>
+</item><item>
+    <title>Golang Map源码阅读笔记</title>
+    <link>https://kyli.fun/go-map/</link>
+    <pubDate>Tue, 26 May 2020 00:00:00 &#43;0000</pubDate>
+    <author>作者</author>
+    <guid>https://kyli.fun/go-map/</guid>
+    <description><![CDATA[<div class="featured-image">
+                <img src="/images/go-map/gopher_map.png" referrerpolicy="no-referrer">
+            </div>最近，终于找了时间耐着性子读了go的map的实现，挺有意思的，没有想到map是这样实现的。这里做一些阅读的笔记。细节都是魔鬼。]]></description>
+</item><item>
+    <title></title>
+    <link>https://kyli.fun/go-timer/</link>
+    <pubDate>Mon, 01 Jan 0001 00:00:00 &#43;0000</pubDate>
+    <author>作者</author>
+    <guid>https://kyli.fun/go-timer/</guid>
+    <description><![CDATA[ ]]></description>
+</item></channel>
+</rss>

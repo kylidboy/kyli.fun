@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge, chrome=1">
+        <title>最近频繁的切换Distro，为了一个最舒服的DE - Distro Hopper &amp; macOS Hater</title><meta name="Description" content="自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。"><meta property="og:title" content="最近频繁的切换Distro，为了一个最舒服的DE" />
+<meta property="og:description" content="自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://kyli.fun/distro-hop/" />
+<meta property="og:image" content="https://kyli.fun/logo.png"/>
+<meta property="article:published_time" content="2020-06-29T00:00:00+00:00" />
+<meta property="article:modified_time" content="2020-06-29T00:00:00+00:00" />
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://kyli.fun/logo.png"/>
+
+<meta name="twitter:title" content="最近频繁的切换Distro，为了一个最舒服的DE"/>
+<meta name="twitter:description" content="自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。"/>
+<meta name="application-name" content="Kyli Blog">
+<meta name="apple-mobile-web-app-title" content="Kyli Blog"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://kyli.fun/distro-hop/" /><link rel="prev" href="https://kyli.fun/emacs-im/" /><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.min.css"><link rel="stylesheet" href="/css/style.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.13.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.7.2/animate.min.css"><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "最近频繁的切换Distro，为了一个最舒服的DE",
+        "inLanguage": "zh-CN",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https:\/\/kyli.fun\/distro-hop\/"
+        },"genre": "posts","keywords": "DE, Linux, Distro Hopper","wordcount":  1601 ,
+        "url": "https:\/\/kyli.fun\/distro-hop\/","datePublished": "2020-06-29T00:00:00+00:00","dateModified": "2020-06-29T00:00:00+00:00","license": "All rights reserved.","publisher": {
+            "@type": "Organization",
+            "name": "Kyli Bing"},"author": {
+                "@type": "Person",
+                "name": "Kyli Bing"
+            },"description": "自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。"
+    }
+    </script></head>
+    <body header-desktop="fixed" header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('dark' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'dark' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-1" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="/posts/"> 所有文章 </a><a class="menu-item" href="/tags/"> 标签 </a><a class="menu-item" href="/categories/"> 分类 </a><a class="menu-item" href="/about/"> 关于 </a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i>  </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item language" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                        <select class="language-select" id="language-select-desktop" onchange="location = this.value;"><option value="/distro-hop/" selected>简体中文</option></select>
+                    </a><span class="menu-item search" id="search-desktop">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-desktop">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-desktop" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-desktop" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-desktop">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </span><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                    <i class="fas fa-adjust fa-fw"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-2" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><div class="search-wrapper">
+                    <div class="search mobile" id="search-mobile">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-mobile">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-mobile" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-mobile" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-mobile">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </div>
+                    <a href="javascript:void(0);" class="search-cancel" id="search-cancel-mobile">
+                        取消
+                    </a>
+                </div><a class="menu-item" href="/posts/" title="">所有文章</a><a class="menu-item" href="/tags/" title="">标签</a><a class="menu-item" href="/categories/" title="">分类</a><a class="menu-item" href="/about/" title="">关于</a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i></a><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                <i class="fas fa-adjust fa-fw"></i>
+            </a><a href="javascript:void(0);" class="menu-item" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                    <select class="language-select" onchange="location = this.value;"><option value="/distro-hop/" selected>简体中文</option></select>
+                </a></div>
+    </div>
+</header>
+<div class="search-dropdown desktop">
+    <div id="search-dropdown-desktop"></div>
+</div>
+<div class="search-dropdown mobile">
+    <div id="search-dropdown-mobile"></div>
+</div>
+<main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">目录</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animated flipInX">最近频繁的切换Distro，为了一个最舒服的DE</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="https://kyli.fun" title="Author" target="_blank" rel="noopener noreffer author" class="author"><i class="fas fa-user-circle fa-fw"></i>Kyli Bing</a></span>&nbsp;<span class="post-category">收录于 <a href="/categories/linux-distro/"><i class="far fa-folder fa-fw"></i>Linux Distro</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw"></i>&nbsp;<time datetime="2020-06-29">2020-06-29</time>&nbsp;<i class="fas fa-pencil-alt fa-fw"></i>&nbsp;约 1601 字&nbsp;
+                <i class="far fa-clock fa-fw"></i>&nbsp;预计阅读 4 分钟&nbsp;</div>
+        </div><div class="featured-image"><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="/images/distro-hop/distros.jpg"
+        data-srcset="/images/distro-hop/distros.jpg, /images/distro-hop/distros.jpg 1.5x, /images/distro-hop/distros.jpg 2x"
+        data-sizes="auto"
+        alt="/images/distro-hop/distros.jpg"
+        title="自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。" /></div><div class="details toc" id="toc-static"  kept="">
+                <div class="details-summary toc-title">
+                    <span>目录</span>
+                    <span><i class="details-icon fas fa-angle-right"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#manjaro-i3">Manjaro i3</a></li>
+    <li><a href="#regolith月岩灰">Regolith(月岩灰)</a></li>
+    <li><a href="#manjaro-kde-with-krohnkite极力推荐">Manjaro KDE with Krohnkite(极力推荐)</a></li>
+    <li><a href="#linuxmint-cinnamon">LinuxMint Cinnamon</a></li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><p>为什么会喜欢Tiling window manager呢？个人使用linux作为主要的学习和开发平台（只有一台笔记本，dell xps15 最渣配），平时主要的routine就是虚拟终端+Emacs+Firefox[Chrome]，非常的固定，每次打开应用之后默认的动作都是全屏，然后在各个窗口之间切换。通过tiling，可以省略全屏这一步，同时通过虚拟桌面，直接分离各个应用，完全手不离键盘就可以完成所有的切换，非常效率（帅）。主要是喜欢这种简洁的感觉。</p>
+<p>Win + Tab 或者 Alt + Tab 这种非人类的操作基本上我是不用的。还有macOS那种全屏之后左划右划，特别奇怪，还有不计其数的人为了这个去买苹果的触摸板（请原谅我的穷）。</p>
+<p>这里简单罗列一下最近试过印象比较好的的Distro+DE的组合，截图什么的，就算了，太麻烦，有兴趣的人，自然会自行闻鸡起舞。</p>
+<h2 id="manjaro-i3">Manjaro i3</h2>
+<p>我装的是19.x的版本，现在最新的已经20.0.3了好像。</p>
+<p>Manjaro i3呢，不是官方的版本，属于社区维护的性质，但它更新的非常快，基本上都是紧密贴合manjaro官方发布的节奏，基本目前不用担心失去维护。
+我装的时候，那个版本有个bug，安装程序没有中文支持，这个有点傻。不过不影响安装，一路next到底，重启，一个精心配置过的i3wm(i3gap)，即开即用。整个桌面和电源管理套件，用的是xfce的。我记得一个非常大的缺点是，快捷键没用使用Vim的<code>h,j,k,l</code>。所以要自己修改一下配置。默认自带的conky也配置的很好。</p>
+<p><a href="https://manjaro.org/download/#i3" target="_blank" rel="noopener noreffer">Manjaro i3</a></p>
+<h2 id="regolith月岩灰">Regolith(月岩灰)</h2>
+<p>非常漂亮，比较小众，我也忘记了我是怎么找到它的。</p>
+<p>Regolith是一个基于Ubuntu Gnome的桌面套件，可以说只是把window manager换成了i3gap，其他都是Gnome的。所以你在gnome里的所有功能和交互，在regolith里都基本保留。Gnome的桌面我一直觉得非常反人类，一直不能get到它这么设计的点，甚至一些基本配置都需要安装Tweak和dconf才能完成，不厌其烦。这点regolith也爱莫能助。</p>
+<p>Regolith的作者对i3做了很多细心的配置，<code>super + ?</code>会弹出一个Help窗口介绍所有的快捷键，这一点我最喜欢。</p>
+<p>相比Manjaro i3，regolith感觉要更精致一些，因为主题配色和gnome套件加成的关系。</p>
+<p><a href="https://regolith-linux.org/" target="_blank" rel="noopener noreffer">Regolith</a></p>
+<h2 id="manjaro-kde-with-krohnkite极力推荐">Manjaro KDE with Krohnkite(极力推荐)</h2>
+<p>KDE当然不是什么tiling wm啦，但是KDE的功能之强，配置之具，一直可以不断的震惊到我。</p>
+<p>最近碰巧在油管上看到了一个关于Krohnkite的介绍，怦然心动。</p>
+<p>Krohnkite是KDE的默认WM KWin的一个脚本，通过Krohnkite，可以直接把KWin变成一个tiling window manager，还可以自定义gap，神不神奇？我装了之后，非常惊艳，可谓是极其完美的。拥有了KDE所有的管理配置能力，同时还有完美的Tiling。只要配置一下虚拟桌面和对应的快捷键，整个DE的操作体验可以完美复刻i3。公司的小朋友看到我的自定之后，也依然决然的装上了，现在沉浸不能自拔。</p>
+<p><a href="https://github.com/esjeon/krohnkite" target="_blank" rel="noopener noreffer">Krohnkite Github</a></p>
+<h2 id="linuxmint-cinnamon">LinuxMint Cinnamon</h2>
+<p>这个是我目前在用的，虽然不能说是tiling，但是Cinnamon自带的<code>windows tiling snap</code>功能，还是能比较好的为我提供“类tiling”的体验。</p>
+<p>从Krohnkite换到Cinnamon其实我是挺不情愿的，因为Krohnkite真的挺完美的。但是KDE本身有点让我头疼的是，xps15的屏是普通DPI的，我办公室一直用的4K的27寸显示器。不能在这两者之间设置不同的DPI scale我不怪KDE，X11和Wayland都各种残疾。但是，我只使用单显示器，切换DPI每次都要重启这个就很烦了。而且莫名的，HDMI不能60hz，只能50hz。</p>
+<p>所以我现在在LinuxMint Cinnamon下，用Roif+Albert+Cinnamon自带的功能，基本上也可以符合自己的使用习惯了。</p>
+<h1 id="流水帐完成">流水帐完成</h1></div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>更新于 2020-06-29</span>
+            </div>
+            <div class="post-info-license"></div>
+        </div>
+        <div class="post-info-line">
+            <div class="post-info-md"><span>
+                            <a class="link-to-markdown" href="/distro-hop/index.md" target="_blank">阅读原始文档</a>
+                        </span></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="分享到 Twitter" data-sharer="twitter" data-url="https://kyli.fun/distro-hop/" data-title="最近频繁的切换Distro，为了一个最舒服的DE" data-hashtags="DE,Linux,Distro Hopper"><i class="fab fa-twitter fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Facebook" data-sharer="facebook" data-url="https://kyli.fun/distro-hop/" data-hashtag="DE"><i class="fab fa-facebook-square fa-fw"></i></a><a href="javascript:void(0);" title="分享到 WhatsApp" data-sharer="whatsapp" data-url="https://kyli.fun/distro-hop/" data-title="最近频繁的切换Distro，为了一个最舒服的DE" data-web><i class="fab fa-whatsapp fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Line" data-sharer="line" data-url="https://kyli.fun/distro-hop/" data-title="最近频繁的切换Distro，为了一个最舒服的DE"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/line.svg"></i></a><a href="javascript:void(0);" title="分享到 微博" data-sharer="weibo" data-url="https://kyli.fun/distro-hop/" data-title="最近频繁的切换Distro，为了一个最舒服的DE" data-image="/images/distro-hop/distros.jpg"><i class="fab fa-weibo fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Myspace" data-sharer="myspace" data-url="https://kyli.fun/distro-hop/" data-title="最近频繁的切换Distro，为了一个最舒服的DE" data-description="自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/myspace.svg"></i></a><a href="javascript:void(0);" title="分享到 Blogger" data-sharer="blogger" data-url="https://kyli.fun/distro-hop/" data-title="最近频繁的切换Distro，为了一个最舒服的DE" data-description="自从发现了i3wm之后，就爱上了tiling，尝试了xmonad|awesome|i3wm，然而，孱弱的管理功能（基本没有），导致在笔记本上很难完美舒适的姿势。在这里回顾一下Hopping的各种姿势体验。"><i class="fab fa-blogger fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Evernote" data-sharer="evernote" data-url="https://kyli.fun/distro-hop/" data-title="最近频繁的切换Distro，为了一个最舒服的DE"><i class="fab fa-evernote fa-fw"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"><i class="fas fa-tags fa-fw"></i>&nbsp;<a href="/tags/de/">DE</a>,&nbsp;<a href="/tags/linux/">Linux</a>,&nbsp;<a href="/tags/distro-hopper/">Distro Hopper</a></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">返回</a></span>&nbsp;|&nbsp;<span><a href="/">主页</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/emacs-im/" class="prev" rel="prev" title="终于可以在Emacs下调用Fcitx打拼音了"><i class="fas fa-angle-left fa-fw"></i>终于可以在Emacs下调用Fcitx打拼音了</a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Hired by Y2Labs</div><div class="footer-line">由 <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.74.0-DEV">Hugo</a> 强力驱动 | 主题 - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.10"><i class="far fa-kiss-wink-heart fa-fw"></i> LoveIt</a>
+                </div><div class="footer-line"><i class="far fa-copyright fa-fw"></i><span itemprop="copyrightYear">2020</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="https://kyli.fun" target="_blank">Kyli Bing</a></span>&nbsp;|&nbsp;<span class="license"><a rel="license external nofollow noopener noreffer" href="https://www.mit.edu/~amini/LICENSE.md" target="_blank">MIT</a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="回到顶部">
+                <i class="fas fa-arrow-up fa-fw"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="查看评论">
+                <i class="fas fa-comment fa-fw"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/smooth-scroll@16.1.3/dist/smooth-scroll.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/autocomplete.js@0.37.1/dist/autocomplete.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/algoliasearch@4.2.0/dist/algoliasearch-lite.umd.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.2.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.6/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.4.0/sharer.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/typeit@7.0.4/dist/typeit.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"复制到剪贴板","maxShownLines":10},"comment":{},"data":{"id-1":"Gopher/Rustacean","id-2":"Gopher/Rustacean"},"search":{"algoliaAppID":"","algoliaIndex":"index.zh-cn","algoliaSearchKey":"","highlightTag":"em","maxResultLength":10,"noResultsFound":"没有找到结果","snippetLength":50,"type":"algolia"},"typeit":{"cursorChar":"|","cursorSpeed":1000,"data":{"id-1":["id-1"],"id-2":["id-2"]},"duration":-1,"speed":100}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>

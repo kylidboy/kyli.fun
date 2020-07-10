@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge, chrome=1">
+        <title>Golang Select源码阅读笔记 - Distro Hopper &amp; macOS Hater</title><meta name="Description" content="之前已经读过了&#34;new三剑客&#34;。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗&lt;i class=&#34;fa fa-dog&#34;&gt;&lt;/i&gt;。"><meta property="og:title" content="Golang Select源码阅读笔记" />
+<meta property="og:description" content="之前已经读过了&#34;new三剑客&#34;。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗&lt;i class=&#34;fa fa-dog&#34;&gt;&lt;/i&gt;。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://kyli.fun/go-select/" />
+<meta property="og:image" content="https://kyli.fun/logo.png"/>
+<meta property="article:published_time" content="2020-06-08T00:00:00+00:00" />
+<meta property="article:modified_time" content="2020-06-08T00:00:00+00:00" />
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://kyli.fun/logo.png"/>
+
+<meta name="twitter:title" content="Golang Select源码阅读笔记"/>
+<meta name="twitter:description" content="之前已经读过了&#34;new三剑客&#34;。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗&lt;i class=&#34;fa fa-dog&#34;&gt;&lt;/i&gt;。"/>
+<meta name="application-name" content="Kyli Blog">
+<meta name="apple-mobile-web-app-title" content="Kyli Blog"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://kyli.fun/go-select/" /><link rel="prev" href="https://kyli.fun/go-slice/" /><link rel="next" href="https://kyli.fun/emacs-im/" /><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.min.css"><link rel="stylesheet" href="/css/style.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.13.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.7.2/animate.min.css"><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "Golang Select源码阅读笔记",
+        "inLanguage": "zh-CN",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https:\/\/kyli.fun\/go-select\/"
+        },"genre": "posts","keywords": "golang, runtime, select, 源码阅读","wordcount":  7104 ,
+        "url": "https:\/\/kyli.fun\/go-select\/","datePublished": "2020-06-08T00:00:00+00:00","dateModified": "2020-06-08T00:00:00+00:00","license": "All rights reserved.","publisher": {
+            "@type": "Organization",
+            "name": "Kyli Bing"},"author": {
+                "@type": "Person",
+                "name": "Kyli Bing"
+            },"description": "之前已经读过了\"new三剑客\"。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗\u003ci class=\"fa fa-dog\"\u003e\u003c/i\u003e。"
+    }
+    </script></head>
+    <body header-desktop="fixed" header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('dark' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'dark' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-1" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="/posts/"> 所有文章 </a><a class="menu-item" href="/tags/"> 标签 </a><a class="menu-item" href="/categories/"> 分类 </a><a class="menu-item" href="/about/"> 关于 </a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i>  </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item language" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                        <select class="language-select" id="language-select-desktop" onchange="location = this.value;"><option value="/go-select/" selected>简体中文</option></select>
+                    </a><span class="menu-item search" id="search-desktop">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-desktop">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-desktop" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-desktop" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-desktop">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </span><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                    <i class="fas fa-adjust fa-fw"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="Distro Hopper &amp; macOS Hater"><span class="header-title-pre"><i class='fa fa-code'></i></span><span id="id-2" class="typeit"></span><span class="header-title-post"><i class='fa fa-kiss-wink-heart'></i></span></a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><div class="search-wrapper">
+                    <div class="search mobile" id="search-mobile">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-mobile">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-mobile" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-mobile" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-mobile">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </div>
+                    <a href="javascript:void(0);" class="search-cancel" id="search-cancel-mobile">
+                        取消
+                    </a>
+                </div><a class="menu-item" href="/posts/" title="">所有文章</a><a class="menu-item" href="/tags/" title="">标签</a><a class="menu-item" href="/categories/" title="">分类</a><a class="menu-item" href="/about/" title="">关于</a><a class="menu-item" href="https://github.com/kylidboy" title="GitHub" rel="noopener noreffer" target="_blank"><i class='fab fa-github fa-fw'></i></a><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                <i class="fas fa-adjust fa-fw"></i>
+            </a><a href="javascript:void(0);" class="menu-item" title="选择语言">简体中文<i class="fas fa-chevron-right fa-fw"></i>
+                    <select class="language-select" onchange="location = this.value;"><option value="/go-select/" selected>简体中文</option></select>
+                </a></div>
+    </div>
+</header>
+<div class="search-dropdown desktop">
+    <div id="search-dropdown-desktop"></div>
+</div>
+<div class="search-dropdown mobile">
+    <div id="search-dropdown-mobile"></div>
+</div>
+<main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">目录</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animated flipInX">Golang Select源码阅读笔记</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="https://kyli.fun" title="Author" target="_blank" rel="noopener noreffer author" class="author"><i class="fas fa-user-circle fa-fw"></i>Kyli Bing</a></span>&nbsp;<span class="post-category">收录于 <a href="/categories/golang%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/"><i class="far fa-folder fa-fw"></i>golang源码阅读</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw"></i>&nbsp;<time datetime="2020-06-08">2020-06-08</time>&nbsp;<i class="fas fa-pencil-alt fa-fw"></i>&nbsp;约 7104 字&nbsp;
+                <i class="far fa-clock fa-fw"></i>&nbsp;预计阅读 15 分钟&nbsp;</div>
+        </div><div class="featured-image"><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="/images/go-select/gopher-select.jpg"
+        data-srcset="/images/go-select/gopher-select.jpg, /images/go-select/gopher-select.jpg 1.5x, /images/go-select/gopher-select.jpg 2x"
+        data-sizes="auto"
+        alt="/images/go-select/gopher-select.jpg"
+        title="之前已经读过了&#34;new三剑客&#34;。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗&lt;i class=&#34;fa fa-dog&#34;&gt;&lt;/i&gt;。" /></div><div class="details toc" id="toc-static"  kept="">
+                <div class="details-summary toc-title">
+                    <span>目录</span>
+                    <span><i class="details-icon fas fa-angle-right"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#主要的常量和类型定义">主要的常量和类型定义</a></li>
+    <li><a href="#select-的主体">select 的主体</a>
+      <ul>
+        <li><a href="#准备工作">准备工作</a></li>
+        <li><a href="#加锁解锁">加锁解锁</a></li>
+        <li><a href="#是时候开始真正的表演了">是时候开始真正的表演了</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><p>之前已经读过了&quot;new三剑客&rdquo;。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗<i class="fa fa-dog"></i>。</p>
+<p>唉，这select的阅读不可能不涉及到goroutine的部分，不过好在在channel的代码里我们已经看过一大部分了。race detector的部分都略过。</p>
+<p>面试的时候很多面试官问的一个高频问题就是select的分支执行是顺序的还是随机的？</p>
+<h2 id="主要的常量和类型定义">主要的常量和类型定义</h2>
+<p>吐嘈一下，go的常量定义真的是丑。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// scase.kind values.
+</span><span class="c1">// Known to compiler.
+</span><span class="c1">// Changes here must also be made in src/cmd/compile/internal/gc/select.go&#39;s walkselectcases.
+</span><span class="c1"></span><span class="kd">const</span> <span class="p">(</span>
+	<span class="nx">caseNil</span> <span class="p">=</span> <span class="kc">iota</span>
+	<span class="nx">caseRecv</span>
+	<span class="nx">caseSend</span>
+	<span class="nx">caseDefault</span>
+<span class="p">)</span>
+
+<span class="c1">// Select case descriptor.
+</span><span class="c1">// Known to compiler.
+</span><span class="c1">// Changes here must also be made in src/cmd/internal/gc/select.go&#39;s scasetype.
+</span><span class="c1"></span><span class="kd">type</span> <span class="nx">scase</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">c</span>           <span class="o">*</span><span class="nx">hchan</span>         <span class="c1">// chan
+</span><span class="c1"></span>	<span class="nx">elem</span>        <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span> <span class="c1">// data element
+</span><span class="c1"></span>	<span class="nx">kind</span>        <span class="kt">uint16</span>
+	<span class="nx">pc</span>          <span class="kt">uintptr</span> <span class="c1">// race pc (for race detector / msan)
+</span><span class="c1"></span>	<span class="nx">releasetime</span> <span class="kt">int64</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>首先是定义了4个scase.kind常量，表示select分支(case)的类型。结合我们平时写go的经验，select里面的case就4个类型，顾名思义。然后是scase，编译器用来描述一个case用的struct。字段不多，<code>scase.c</code>用来保存我们在case里阻塞的读写channel。kind对应之前的常量。releasetime暂时不知道是干嘛的。</p>
+<p><a href="https://kyli.fun/go-chan" target="_blank" rel="noopener noreffer">温故知新的超链接Go Chan</a></p>
+<h2 id="select-的主体">select 的主体</h2>
+<p>整个select 结构只对应一个函数：<code>func selectgo(cas0 *scase, order0 *uint16, ncases int) (int, bool)</code>。所以我们就把整个代码打碎，在代码中直接以注释的形式来阅读吧，不再整段代码copy了。</p>
+<p>先看注释，源码可以不看，注释一定要看。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// selectgo implements the select statement.
+</span><span class="c1">//
+</span><span class="c1">// cas0 points to an array of type [ncases]scase, and order0 points to
+</span><span class="c1">// an array of type [2*ncases]uint16 where ncases must be &lt;= 65536.
+</span><span class="c1">// Both reside on the goroutine&#39;s stack (regardless of any escaping in
+</span><span class="c1">// selectgo).
+</span><span class="c1">// cas0 是一个指向[ncases]scase数组类型的指针， order0是一个指向[2*ncases]uint16类型数组的指针，其中ncases必须小于等于65535，很明显uint16不能溢出，所以一个select里面只有最多65535个case，写那么多case，会被fired吧。
+</span><span class="c1">// 这两个变量都分配在goroutine的栈上（无视selectgo中的任何逃逸）（这句话我也不太理解，功夫还不够）。
+</span><span class="c1"></span>
+<span class="c1">// selectgo returns the index of the chosen scase, which matches the
+</span><span class="c1">// ordinal position of its respective select{recv,send,default} call.
+</span><span class="c1">// Also, if the chosen scase was a receive operation, it reports whether
+</span><span class="c1">// a value was received.
+</span><span class="c1">// selectgo 返回的是选中的scase的索引，该索引是按照select中的case语句申明的先后顺序。而且，如果选中的scase是一个receive操作，selectgo还会返回是否有值已经被接收了。
+</span></code></pre></td></tr></table>
+</div>
+</div><h3 id="准备工作">准备工作</h3>
+<p>编译器把所有的case语句转换成scase数组之后，传给selectgo，selectgo干的第一件事情，是重组两个排序：一个加锁排序和一个轮寻排序。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span><span class="lnt">108
+</span><span class="lnt">109
+</span><span class="lnt">110
+</span><span class="lnt">111
+</span><span class="lnt">112
+</span><span class="lnt">113
+</span><span class="lnt">114
+</span><span class="lnt">115
+</span><span class="lnt">116
+</span><span class="lnt">117
+</span><span class="lnt">118
+</span><span class="lnt">119
+</span><span class="lnt">120
+</span><span class="lnt">121
+</span><span class="lnt">122
+</span><span class="lnt">123
+</span><span class="lnt">124
+</span><span class="lnt">125
+</span><span class="lnt">126
+</span><span class="lnt">127
+</span><span class="lnt">128
+</span><span class="lnt">129
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go">	<span class="c1">// NOTE: In order to maintain a lean stack size, the number of scases
+</span><span class="c1"></span>	<span class="c1">// is capped at 65536.
+</span><span class="c1"></span>	<span class="c1">// cas1和cas0没有啥区别，直接通过unsafe转换成一个数组的指针，方便下标访问。
+</span><span class="c1"></span>	<span class="nx">cas1</span> <span class="o">:=</span> <span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">16</span><span class="p">]</span><span class="nx">scase</span><span class="p">)(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="nx">cas0</span><span class="p">))</span>
+	<span class="c1">// order1是一个2×ncases大小的数组，里面会存放两组cas1的下标队列。
+</span><span class="c1"></span>	<span class="nx">order1</span> <span class="o">:=</span> <span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">17</span><span class="p">]</span><span class="kt">uint16</span><span class="p">)(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="nx">order0</span><span class="p">))</span>
+	<span class="c1">// 保持一个slice指向cas1
+</span><span class="c1"></span>	<span class="nx">scases</span> <span class="o">:=</span> <span class="nx">cas1</span><span class="p">[:</span><span class="nx">ncases</span><span class="p">:</span><span class="nx">ncases</span><span class="p">]</span>
+	<span class="c1">// 这里是划分order1的空间，前半部分给轮寻排序，后半部分给加锁排序，两者的长度都是ncases。
+</span><span class="c1"></span>	<span class="nx">pollorder</span> <span class="o">:=</span> <span class="nx">order1</span><span class="p">[:</span><span class="nx">ncases</span><span class="p">:</span><span class="nx">ncases</span><span class="p">]</span>
+	<span class="nx">lockorder</span> <span class="o">:=</span> <span class="nx">order1</span><span class="p">[</span><span class="nx">ncases</span><span class="p">:][:</span><span class="nx">ncases</span><span class="p">:</span><span class="nx">ncases</span><span class="p">]</span>
+
+	<span class="c1">// Replace send/receive cases involving nil channels with
+</span><span class="c1"></span>	<span class="c1">// caseNil so logic below can assume non-nil channel.
+</span><span class="c1"></span>	<span class="c1">// 先过滤channel为nil的cases，caseDefault是一个特例，要保留它。
+</span><span class="c1"></span>	<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">scases</span> <span class="p">{</span>
+		<span class="nx">cas</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">scases</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span>
+		<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">c</span> <span class="o">==</span> <span class="kc">nil</span> <span class="o">&amp;&amp;</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="o">!=</span> <span class="nx">caseDefault</span> <span class="p">{</span>
+			<span class="o">*</span><span class="nx">cas</span> <span class="p">=</span> <span class="nx">scase</span><span class="p">{}</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="c1">// 大概是profile相关的
+</span><span class="c1"></span>	<span class="kd">var</span> <span class="nx">t0</span> <span class="kt">int64</span>
+	<span class="k">if</span> <span class="nx">blockprofilerate</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nx">t0</span> <span class="p">=</span> <span class="nf">cputicks</span><span class="p">()</span>
+		<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="nx">ncases</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+			<span class="nx">scases</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="o">-</span><span class="mi">1</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="c1">// The compiler rewrites selects that statically have
+</span><span class="c1"></span>	<span class="c1">// only 0 or 1 cases plus default into simpler constructs.
+</span><span class="c1"></span>	<span class="c1">// The only way we can end up with such small sel.ncase
+</span><span class="c1"></span>	<span class="c1">// values here is for a larger select in which most channels
+</span><span class="c1"></span>	<span class="c1">// have been nilled out. The general code handles those
+</span><span class="c1"></span>	<span class="c1">// cases correctly, and they are rare enough not to bother
+</span><span class="c1"></span>	<span class="c1">// optimizing (and needing to test).
+</span><span class="c1"></span>
+	<span class="c1">// 编译器会把那些只有0或者1个case外加default case的select都重写成更加简单的结构。
+</span><span class="c1"></span>	<span class="c1">// 我们在这里会遇到sel.ncases非常非常小的唯一的情况是，在一个case比较多的select中，大部分分支的
+</span><span class="c1"></span>	<span class="c1">// chan都因为nil被排除掉了。但是我们的代码已经很好的兼容这种情况，而且这种情况本身也是足够罕见到不值得专门去优化。
+</span><span class="c1"></span>
+	<span class="c1">// generate permuted order
+</span><span class="c1"></span>	<span class="c1">// 在[]pollorder里填充随机化的轮寻的排序。
+</span><span class="c1"></span>	<span class="c1">// pollorder本来是[0, 1, 2, 3, ..... ncases-1]
+</span><span class="c1"></span>	<span class="c1">// 然后fastrandn用来打乱这个排序。这个可以回答面试官的问题吧。
+</span><span class="c1"></span>	<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">1</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="nx">ncases</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+		<span class="c1">// 在[0, i+1)区间内快速获得一个随机整数j。
+</span><span class="c1"></span>		<span class="nx">j</span> <span class="o">:=</span> <span class="nf">fastrandn</span><span class="p">(</span><span class="nb">uint32</span><span class="p">(</span><span class="nx">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+		<span class="c1">// 把pollorder[j]移到pollorder[i]，就等于在pollorder中空出了随机位置j。
+</span><span class="c1"></span>		<span class="nx">pollorder</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="p">=</span> <span class="nx">pollorder</span><span class="p">[</span><span class="nx">j</span><span class="p">]</span>
+		<span class="c1">// 然后把第i个case的索引i，放入pollorder。因为pollorder在进入for之前，保持的是全部的顺序序列，
+</span><span class="c1"></span>		<span class="c1">// 所以这里可以的uint16(i)就是原本pollorder[i]的值。
+</span><span class="c1"></span>		<span class="c1">// 整个逻辑就变成了遍历整个数组，每次循环都把当前值和之前的某一个随机位置的值交换位置。这样就完成了pollorder的随机化。
+</span><span class="c1"></span>		<span class="nx">pollorder</span><span class="p">[</span><span class="nx">j</span><span class="p">]</span> <span class="p">=</span> <span class="nb">uint16</span><span class="p">(</span><span class="nx">i</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="c1">// 接下来，要排lockorder的序，lockorder的排序是有要求的，不像pollorder可以随机乱序。
+</span><span class="c1"></span>	<span class="c1">// sort the cases by Hchan address to get the locking order.
+</span><span class="c1"></span>	<span class="c1">// simple heap sort, to guarantee n log n time and constant stack footprint.
+</span><span class="c1"></span>	<span class="c1">// 这里是采用堆排序，nlog n，来按照scase所包含的Hchan字段值的地址来生成加锁的顺序。
+</span><span class="c1"></span>	<span class="c1">// 根据后面的代码以及加解锁的逻辑，按照hchan的地址排序是因为chan可能出现两次，这样比较容易找到出现两次的chan，只加解锁一次。
+</span><span class="c1"></span>
+	<span class="c1">// lockorder里生成了一个最大堆
+</span><span class="c1"></span>	<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="nx">ncases</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+		<span class="nx">j</span> <span class="o">:=</span> <span class="nx">i</span>
+		<span class="c1">// Start with the pollorder to permute cases on the same channel.
+</span><span class="c1"></span>		<span class="c1">// 这里是根据已经被随机排列过的pollorder来遍历所有的cases
+</span><span class="c1"></span>		<span class="c1">// c保持一个当前case的游标
+</span><span class="c1"></span>		<span class="nx">c</span> <span class="o">:=</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">pollorder</span><span class="p">[</span><span class="nx">i</span><span class="p">]].</span><span class="nx">c</span>
+		<span class="c1">// (j-1)/2是j的父节点，如果j的父节点排序高于c的排序，那么就认为，j的其他祖先的排序也都高于c的排序,
+</span><span class="c1"></span>		<span class="k">for</span> <span class="nx">j</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">lockorder</span><span class="p">[(</span><span class="nx">j</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">]].</span><span class="nx">c</span><span class="p">.</span><span class="nf">sortkey</span><span class="p">()</span> <span class="p">&lt;</span> <span class="nx">c</span><span class="p">.</span><span class="nf">sortkey</span><span class="p">()</span> <span class="p">{</span>
+			<span class="c1">// j &gt; 0只是一个保护。
+</span><span class="c1"></span>			<span class="c1">// k指向j的父节点。
+</span><span class="c1"></span>			<span class="c1">// 如果c的父节点的排序低于c的排序，那么就把c的父节点降到c的位置
+</span><span class="c1"></span>			<span class="nx">k</span> <span class="o">:=</span> <span class="p">(</span><span class="nx">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+			<span class="nx">lockorder</span><span class="p">[</span><span class="nx">j</span><span class="p">]</span> <span class="p">=</span> <span class="nx">lockorder</span><span class="p">[</span><span class="nx">k</span><span class="p">]</span>
+			<span class="c1">// 把j指到被调整的父节点的位置，进入下一个循环，从新的j开始继续检查父节点的排序。
+</span><span class="c1"></span>			<span class="nx">j</span> <span class="p">=</span> <span class="nx">k</span>
+		<span class="p">}</span>
+		<span class="c1">// 直到j的排序满足j的排序小于j的父节点，把pollorder[i]放入lockorder[j]。
+</span><span class="c1"></span>		<span class="c1">// 因为这里的外循环是从0开始的，所以i在每一个位置上，内循环都可以保证看到一个c的排序小于自己父节点的排序，
+</span><span class="c1"></span>		<span class="c1">// 就可以认为c的所有的祖先节点的排序都比祖先的父节点要小。
+</span><span class="c1"></span>		<span class="c1">// 这里j指向的应该是最后一个被移动过的节点，也就是当前pollorder[i]应该存在的节点位置。
+</span><span class="c1"></span>		<span class="nx">lockorder</span><span class="p">[</span><span class="nx">j</span><span class="p">]</span> <span class="p">=</span> <span class="nx">pollorder</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span>
+	<span class="p">}</span>
+
+	<span class="c1">// 对lockorder进行堆排序
+</span><span class="c1"></span>	<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="nx">ncases</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span><span class="o">--</span> <span class="p">{</span>
+		<span class="c1">// 在[0, i]这个区间
+</span><span class="c1"></span>
+		<span class="c1">// 暂时保存当前游标访问的lockorder中的元素，也就是区间的末尾（将会被沉底的堆顶覆盖）。
+</span><span class="c1"></span>		<span class="nx">o</span> <span class="o">:=</span> <span class="nx">lockorder</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span>
+		<span class="c1">// c始终都是lockorder当前循环访问的元素所指向的scase所包含的hchan
+</span><span class="c1"></span>		<span class="nx">c</span> <span class="o">:=</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">o</span><span class="p">].</span><span class="nx">c</span>
+		<span class="c1">// 把堆定元素放到当前区间的末尾，堆顶即待排序元素的最大值，让最大值沉底。
+</span><span class="c1"></span>		<span class="nx">lockorder</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="p">=</span> <span class="nx">lockorder</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+		<span class="c1">// j指向堆顶，再进行一个最大堆的构造
+</span><span class="c1"></span>		<span class="nx">j</span> <span class="o">:=</span> <span class="mi">0</span>
+		<span class="k">for</span> <span class="p">{</span>
+			<span class="c1">// k是左子节点，k+1是右子节点
+</span><span class="c1"></span>			<span class="nx">k</span> <span class="o">:=</span> <span class="nx">j</span><span class="o">*</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
+			<span class="k">if</span> <span class="nx">k</span> <span class="o">&gt;=</span> <span class="nx">i</span> <span class="p">{</span>
+				<span class="c1">// break内循环
+</span><span class="c1"></span>				<span class="k">break</span>
+			<span class="p">}</span>
+			<span class="k">if</span> <span class="nx">k</span><span class="o">+</span><span class="mi">1</span> <span class="p">&lt;</span> <span class="nx">i</span> <span class="o">&amp;&amp;</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">lockorder</span><span class="p">[</span><span class="nx">k</span><span class="p">]].</span><span class="nx">c</span><span class="p">.</span><span class="nf">sortkey</span><span class="p">()</span> <span class="p">&lt;</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">lockorder</span><span class="p">[</span><span class="nx">k</span><span class="o">+</span><span class="mi">1</span><span class="p">]].</span><span class="nx">c</span><span class="p">.</span><span class="nf">sortkey</span><span class="p">()</span> <span class="p">{</span>
+				<span class="c1">// 如果k+1&lt;i，并且左子节点的排序小于右子节点的排序，k++
+</span><span class="c1"></span>				<span class="c1">// 为了让k取子节点中排序较大的那个。
+</span><span class="c1"></span>				<span class="nx">k</span><span class="o">++</span>
+			<span class="p">}</span>
+			<span class="c1">// 因为这个已经是最大堆，所以堆顶空出来之后
+</span><span class="c1"></span>			<span class="c1">// 要做的事情就是把两个子节点中交大的那个和c做比较
+</span><span class="c1"></span>			<span class="c1">// 如果c大，那么直接用c作为新的堆顶，一切就都恢复到了最大堆，可以进行下一个沉底动作了。
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nf">sortkey</span><span class="p">()</span> <span class="p">&lt;</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">lockorder</span><span class="p">[</span><span class="nx">k</span><span class="p">]].</span><span class="nx">c</span><span class="p">.</span><span class="nf">sortkey</span><span class="p">()</span> <span class="p">{</span>
+				<span class="c1">// 如果c小，那么把较大的字节点移动到堆顶
+</span><span class="c1"></span>				<span class="nx">lockorder</span><span class="p">[</span><span class="nx">j</span><span class="p">]</span> <span class="p">=</span> <span class="nx">lockorder</span><span class="p">[</span><span class="nx">k</span><span class="p">]</span>
+				<span class="c1">// 进入被移走堆顶的子堆
+</span><span class="c1"></span>				<span class="nx">j</span> <span class="p">=</span> <span class="nx">k</span>
+				<span class="c1">// continue，继续在被移走堆顶的子堆里面做相同的动作
+</span><span class="c1"></span>				<span class="k">continue</span>
+			<span class="p">}</span>
+			<span class="k">break</span>
+		<span class="p">}</span>
+		<span class="c1">// 这里的j就指向了，这个区间[0, i]原本的末尾元素，在堆顶沉底之后应该在的位置，从而继续保持最大堆，进入下一个循环。
+</span><span class="c1"></span>		<span class="nx">lockorder</span><span class="p">[</span><span class="nx">j</span><span class="p">]</span> <span class="p">=</span> <span class="nx">o</span>
+	<span class="p">}</span>
+	<span class="c1">// 到此，我们就拥有了两个不同的scase的排序队列：lockorder和pollorder。他们会在各自的战场发光发热。
+</span></code></pre></td></tr></table>
+</div>
+</div><h3 id="加锁解锁">加锁解锁</h3>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">sellock</span><span class="p">(</span><span class="nx">scases</span> <span class="p">[]</span><span class="nx">scase</span><span class="p">,</span> <span class="nx">lockorder</span> <span class="p">[]</span><span class="kt">uint16</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kd">var</span> <span class="nx">c</span> <span class="o">*</span><span class="nx">hchan</span>
+	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">o</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">lockorder</span> <span class="p">{</span>
+		<span class="nx">c0</span> <span class="o">:=</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">o</span><span class="p">].</span><span class="nx">c</span>
+		<span class="c1">// lockorder是根据scase.c的地址进行排序的，
+</span><span class="c1"></span>		<span class="c1">// 如果case中有两个case分别对同一个chan进行send/recv
+</span><span class="c1"></span>		<span class="c1">// 这两个case在排序后会排在一起，这个时候，我们只能在chan第一次出现的时候加锁并跳过第二次出现。
+</span><span class="c1"></span>		<span class="c1">// 在解锁的时候重复这个动作。
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nx">c0</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="o">&amp;&amp;</span> <span class="nx">c0</span> <span class="o">!=</span> <span class="nx">c</span> <span class="p">{</span>
+			<span class="nx">c</span> <span class="p">=</span> <span class="nx">c0</span>
+			<span class="nf">lock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span> <span class="p">[]</span><span class="nx">scase</span><span class="p">,</span> <span class="nx">lockorder</span> <span class="p">[]</span><span class="kt">uint16</span><span class="p">)</span> <span class="p">{</span>
+	<span class="c1">// We must be very careful here to not touch sel after we have unlocked
+</span><span class="c1"></span>	<span class="c1">// the last lock, because sel can be freed right after the last unlock.
+</span><span class="c1"></span>	<span class="c1">// Consider the following situation.
+</span><span class="c1"></span>	<span class="c1">// First M calls runtime·park() in runtime·selectgo() passing the sel.
+</span><span class="c1"></span>	<span class="c1">// Once runtime·park() has unlocked the last lock, another M makes
+</span><span class="c1"></span>	<span class="c1">// the G that calls select runnable again and schedules it for execution.
+</span><span class="c1"></span>	<span class="c1">// When the G runs on another M, it locks all the locks and frees sel.
+</span><span class="c1"></span>	<span class="c1">// Now if the first M touches sel, it will access freed memory.
+</span><span class="c1"></span>
+	<span class="c1">// 这段不是很明白，可能要等看过GPM调度之后才会明白。
+</span><span class="c1"></span>	<span class="c1">// 这里我们必须十分小心，在我们释放了最后一个锁以后，就不能再触碰sel。
+</span><span class="c1"></span>	<span class="c1">// 因为sel有可能在我们释放最后一个锁之后立马也被释放了。
+</span><span class="c1"></span>	<span class="c1">// 设想如下场景
+</span><span class="c1"></span>	<span class="c1">// 当第一个M在runtime.selectgo()里面调用runtime.park()，并传入sel。
+</span><span class="c1"></span>	<span class="c1">// 一旦runtime.park()释放了最后一个锁，立马有另一个M标记刚才调用select的G为可运行状态并调度G来执行。
+</span><span class="c1"></span>	<span class="c1">// 当那个G运行在了另一个M上的时候，G会给所有的锁上锁，并释放掉sel。
+</span><span class="c1"></span>	<span class="c1">// 那么这个时候如果第一个M访问到了sel，它将会访问到已经释放的内存。
+</span><span class="c1"></span>
+	<span class="c1">// 顺序加锁，倒序解锁
+</span><span class="c1"></span>	<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="nb">len</span><span class="p">(</span><span class="nx">scases</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span><span class="o">--</span> <span class="p">{</span>
+		<span class="nx">c</span> <span class="o">:=</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">lockorder</span><span class="p">[</span><span class="nx">i</span><span class="p">]].</span><span class="nx">c</span>
+		<span class="k">if</span> <span class="nx">c</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="k">break</span>
+		<span class="p">}</span>
+		<span class="c1">// 因为倒序，所以在重复chan出现的时候，在第二次解锁。
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nx">i</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nx">c</span> <span class="o">==</span> <span class="nx">scases</span><span class="p">[</span><span class="nx">lockorder</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]].</span><span class="nx">c</span> <span class="p">{</span>
+			<span class="k">continue</span> <span class="c1">// will unlock it on the next iteration
+</span><span class="c1"></span>		<span class="p">}</span>
+		<span class="nf">unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">c</span><span class="p">.</span><span class="nx">lock</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id="是时候开始真正的表演了">是时候开始真正的表演了</h3>
+<p>一大段代码，在go里面这么密集的使用<code>goto</code>真的好吗？不过，大神们留下的代码，还是很值得细品，你品，你慢慢品。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span><span class="lnt">108
+</span><span class="lnt">109
+</span><span class="lnt">110
+</span><span class="lnt">111
+</span><span class="lnt">112
+</span><span class="lnt">113
+</span><span class="lnt">114
+</span><span class="lnt">115
+</span><span class="lnt">116
+</span><span class="lnt">117
+</span><span class="lnt">118
+</span><span class="lnt">119
+</span><span class="lnt">120
+</span><span class="lnt">121
+</span><span class="lnt">122
+</span><span class="lnt">123
+</span><span class="lnt">124
+</span><span class="lnt">125
+</span><span class="lnt">126
+</span><span class="lnt">127
+</span><span class="lnt">128
+</span><span class="lnt">129
+</span><span class="lnt">130
+</span><span class="lnt">131
+</span><span class="lnt">132
+</span><span class="lnt">133
+</span><span class="lnt">134
+</span><span class="lnt">135
+</span><span class="lnt">136
+</span><span class="lnt">137
+</span><span class="lnt">138
+</span><span class="lnt">139
+</span><span class="lnt">140
+</span><span class="lnt">141
+</span><span class="lnt">142
+</span><span class="lnt">143
+</span><span class="lnt">144
+</span><span class="lnt">145
+</span><span class="lnt">146
+</span><span class="lnt">147
+</span><span class="lnt">148
+</span><span class="lnt">149
+</span><span class="lnt">150
+</span><span class="lnt">151
+</span><span class="lnt">152
+</span><span class="lnt">153
+</span><span class="lnt">154
+</span><span class="lnt">155
+</span><span class="lnt">156
+</span><span class="lnt">157
+</span><span class="lnt">158
+</span><span class="lnt">159
+</span><span class="lnt">160
+</span><span class="lnt">161
+</span><span class="lnt">162
+</span><span class="lnt">163
+</span><span class="lnt">164
+</span><span class="lnt">165
+</span><span class="lnt">166
+</span><span class="lnt">167
+</span><span class="lnt">168
+</span><span class="lnt">169
+</span><span class="lnt">170
+</span><span class="lnt">171
+</span><span class="lnt">172
+</span><span class="lnt">173
+</span><span class="lnt">174
+</span><span class="lnt">175
+</span><span class="lnt">176
+</span><span class="lnt">177
+</span><span class="lnt">178
+</span><span class="lnt">179
+</span><span class="lnt">180
+</span><span class="lnt">181
+</span><span class="lnt">182
+</span><span class="lnt">183
+</span><span class="lnt">184
+</span><span class="lnt">185
+</span><span class="lnt">186
+</span><span class="lnt">187
+</span><span class="lnt">188
+</span><span class="lnt">189
+</span><span class="lnt">190
+</span><span class="lnt">191
+</span><span class="lnt">192
+</span><span class="lnt">193
+</span><span class="lnt">194
+</span><span class="lnt">195
+</span><span class="lnt">196
+</span><span class="lnt">197
+</span><span class="lnt">198
+</span><span class="lnt">199
+</span><span class="lnt">200
+</span><span class="lnt">201
+</span><span class="lnt">202
+</span><span class="lnt">203
+</span><span class="lnt">204
+</span><span class="lnt">205
+</span><span class="lnt">206
+</span><span class="lnt">207
+</span><span class="lnt">208
+</span><span class="lnt">209
+</span><span class="lnt">210
+</span><span class="lnt">211
+</span><span class="lnt">212
+</span><span class="lnt">213
+</span><span class="lnt">214
+</span><span class="lnt">215
+</span><span class="lnt">216
+</span><span class="lnt">217
+</span><span class="lnt">218
+</span><span class="lnt">219
+</span><span class="lnt">220
+</span><span class="lnt">221
+</span><span class="lnt">222
+</span><span class="lnt">223
+</span><span class="lnt">224
+</span><span class="lnt">225
+</span><span class="lnt">226
+</span><span class="lnt">227
+</span><span class="lnt">228
+</span><span class="lnt">229
+</span><span class="lnt">230
+</span><span class="lnt">231
+</span><span class="lnt">232
+</span><span class="lnt">233
+</span><span class="lnt">234
+</span><span class="lnt">235
+</span><span class="lnt">236
+</span><span class="lnt">237
+</span><span class="lnt">238
+</span><span class="lnt">239
+</span><span class="lnt">240
+</span><span class="lnt">241
+</span><span class="lnt">242
+</span><span class="lnt">243
+</span><span class="lnt">244
+</span><span class="lnt">245
+</span><span class="lnt">246
+</span><span class="lnt">247
+</span><span class="lnt">248
+</span><span class="lnt">249
+</span><span class="lnt">250
+</span><span class="lnt">251
+</span><span class="lnt">252
+</span><span class="lnt">253
+</span><span class="lnt">254
+</span><span class="lnt">255
+</span><span class="lnt">256
+</span><span class="lnt">257
+</span><span class="lnt">258
+</span><span class="lnt">259
+</span><span class="lnt">260
+</span><span class="lnt">261
+</span><span class="lnt">262
+</span><span class="lnt">263
+</span><span class="lnt">264
+</span><span class="lnt">265
+</span><span class="lnt">266
+</span><span class="lnt">267
+</span><span class="lnt">268
+</span><span class="lnt">269
+</span><span class="lnt">270
+</span><span class="lnt">271
+</span><span class="lnt">272
+</span><span class="lnt">273
+</span><span class="lnt">274
+</span><span class="lnt">275
+</span><span class="lnt">276
+</span><span class="lnt">277
+</span><span class="lnt">278
+</span><span class="lnt">279
+</span><span class="lnt">280
+</span><span class="lnt">281
+</span><span class="lnt">282
+</span><span class="lnt">283
+</span><span class="lnt">284
+</span><span class="lnt">285
+</span><span class="lnt">286
+</span><span class="lnt">287
+</span><span class="lnt">288
+</span><span class="lnt">289
+</span><span class="lnt">290
+</span><span class="lnt">291
+</span><span class="lnt">292
+</span><span class="lnt">293
+</span><span class="lnt">294
+</span><span class="lnt">295
+</span><span class="lnt">296
+</span><span class="lnt">297
+</span><span class="lnt">298
+</span><span class="lnt">299
+</span><span class="lnt">300
+</span><span class="lnt">301
+</span><span class="lnt">302
+</span><span class="lnt">303
+</span><span class="lnt">304
+</span><span class="lnt">305
+</span><span class="lnt">306
+</span><span class="lnt">307
+</span><span class="lnt">308
+</span><span class="lnt">309
+</span><span class="lnt">310
+</span><span class="lnt">311
+</span><span class="lnt">312
+</span><span class="lnt">313
+</span><span class="lnt">314
+</span><span class="lnt">315
+</span><span class="lnt">316
+</span><span class="lnt">317
+</span><span class="lnt">318
+</span><span class="lnt">319
+</span><span class="lnt">320
+</span><span class="lnt">321
+</span><span class="lnt">322
+</span><span class="lnt">323
+</span><span class="lnt">324
+</span><span class="lnt">325
+</span><span class="lnt">326
+</span><span class="lnt">327
+</span><span class="lnt">328
+</span><span class="lnt">329
+</span><span class="lnt">330
+</span><span class="lnt">331
+</span><span class="lnt">332
+</span><span class="lnt">333
+</span><span class="lnt">334
+</span><span class="lnt">335
+</span><span class="lnt">336
+</span><span class="lnt">337
+</span><span class="lnt">338
+</span><span class="lnt">339
+</span><span class="lnt">340
+</span><span class="lnt">341
+</span><span class="lnt">342
+</span><span class="lnt">343
+</span><span class="lnt">344
+</span><span class="lnt">345
+</span><span class="lnt">346
+</span><span class="lnt">347
+</span><span class="lnt">348
+</span><span class="lnt">349
+</span><span class="lnt">350
+</span><span class="lnt">351
+</span><span class="lnt">352
+</span><span class="lnt">353
+</span><span class="lnt">354
+</span><span class="lnt">355
+</span><span class="lnt">356
+</span><span class="lnt">357
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-go" data-lang="go">	<span class="c1">// 一堆变量，后面会有用的吧。
+</span><span class="c1"></span>	<span class="kd">var</span> <span class="p">(</span>
+		<span class="nx">gp</span>     <span class="o">*</span><span class="nx">g</span>
+		<span class="nx">sg</span>     <span class="o">*</span><span class="nx">sudog</span>
+		<span class="nx">c</span>      <span class="o">*</span><span class="nx">hchan</span>
+		<span class="nx">k</span>      <span class="o">*</span><span class="nx">scase</span>
+		<span class="nx">sglist</span> <span class="o">*</span><span class="nx">sudog</span>
+		<span class="nx">sgnext</span> <span class="o">*</span><span class="nx">sudog</span>
+		<span class="nx">qp</span>     <span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span>
+		<span class="nx">nextp</span>  <span class="o">**</span><span class="nx">sudog</span>
+	<span class="p">)</span>
+
+<span class="nx">loop</span><span class="p">:</span>
+	<span class="c1">// pass 1 - look for something already waiting
+</span><span class="c1"></span>	<span class="c1">// 第一步，试图找到已经就绪的case
+</span><span class="c1"></span>	<span class="kd">var</span> <span class="nx">dfli</span> <span class="kt">int</span>
+	<span class="kd">var</span> <span class="nx">dfl</span> <span class="o">*</span><span class="nx">scase</span>
+	<span class="c1">// scase的数组下标
+</span><span class="c1"></span>	<span class="kd">var</span> <span class="nx">casi</span> <span class="kt">int</span>
+	<span class="c1">// scase的指针，casi对应的scase
+</span><span class="c1"></span>	<span class="kd">var</span> <span class="nx">cas</span> <span class="o">*</span><span class="nx">scase</span>
+	<span class="kd">var</span> <span class="nx">recvOK</span> <span class="kt">bool</span>
+	<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="nx">ncases</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+		<span class="c1">// 这里可以看到所有的scases的遍历都是根据pollorder里的排序。
+</span><span class="c1"></span>		<span class="nx">casi</span> <span class="p">=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">pollorder</span><span class="p">[</span><span class="nx">i</span><span class="p">])</span>
+		<span class="nx">cas</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">scases</span><span class="p">[</span><span class="nx">casi</span><span class="p">]</span>
+		<span class="c1">// 获得当前的scase的chan
+</span><span class="c1"></span>		<span class="nx">c</span> <span class="p">=</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">c</span>
+
+		<span class="k">switch</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="p">{</span>
+
+		<span class="k">case</span> <span class="nx">caseNil</span><span class="p">:</span>
+			<span class="c1">// 直接pass掉不包含send/receive的case
+</span><span class="c1"></span>			<span class="k">continue</span>
+
+		<span class="k">case</span> <span class="nx">caseRecv</span><span class="p">:</span>
+			<span class="c1">// 如果当前是一个recv操作
+</span><span class="c1"></span>			<span class="c1">// 就从当前case的chan的发送等待队列中，尝试出队一个sudog
+</span><span class="c1"></span>			<span class="nx">sg</span> <span class="p">=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendq</span><span class="p">.</span><span class="nf">dequeue</span><span class="p">()</span>
+			<span class="c1">// 如果chan当前有阻塞的send，那么就从send等待队列获得一个sudog，那么直接跳到recv
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">sg</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+				<span class="k">goto</span> <span class="nx">recv</span>
+			<span class="p">}</span>
+			<span class="c1">// 如果没有sudog，检查chan的qcount，判断是否是带缓冲的chan，直接到bufrecv
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+				<span class="k">goto</span> <span class="nx">bufrecv</span>
+			<span class="p">}</span>
+			<span class="c1">// 如果chan已经被关闭，recv的操作可以立即返回，直接到rclose
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+				<span class="k">goto</span> <span class="nx">rclose</span>
+			<span class="p">}</span>
+			<span class="c1">// 都没有满足，那么这个recv操作继续阻塞
+</span><span class="c1"></span>
+		<span class="k">case</span> <span class="nx">caseSend</span><span class="p">:</span>
+			<span class="c1">// 如果当前是一个send操作
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+				<span class="nf">racereadpc</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">(),</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">pc</span><span class="p">,</span> <span class="nx">chansendpc</span><span class="p">)</span>
+			<span class="p">}</span>
+			<span class="c1">// 如果chan被关闭了，对一个关闭的chan写是会panic的，直接到sclose
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">closed</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+				<span class="k">goto</span> <span class="nx">sclose</span>
+			<span class="p">}</span>
+			<span class="c1">// 如果chan当前有阻塞的read，那么尝试从chan的读取等待队列出队一个sudog
+</span><span class="c1"></span>			<span class="nx">sg</span> <span class="p">=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvq</span><span class="p">.</span><span class="nf">dequeue</span><span class="p">()</span>
+			<span class="c1">// 如果获得了一个sudog，直接跳到send
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">sg</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+				<span class="k">goto</span> <span class="nx">send</span>
+			<span class="p">}</span>
+			<span class="c1">// 如果是带缓冲的chan并且缓冲还没有填满，直接到bufsend
+</span><span class="c1"></span>			<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span> <span class="p">&lt;</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+				<span class="k">goto</span> <span class="nx">bufsend</span>
+			<span class="p">}</span>
+
+		<span class="k">case</span> <span class="nx">caseDefault</span><span class="p">:</span>
+			<span class="c1">// mark default case
+</span><span class="c1"></span>			<span class="nx">dfli</span> <span class="p">=</span> <span class="nx">casi</span>
+			<span class="nx">dfl</span> <span class="p">=</span> <span class="nx">cas</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="c1">// 如果default case存在，并且当前没有其他的send/recv就绪，那么select的执行就掉到default上。
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">dfl</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="c1">// 解锁
+</span><span class="c1"></span>		<span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span>
+		<span class="nx">casi</span> <span class="p">=</span> <span class="nx">dfli</span>
+		<span class="nx">cas</span> <span class="p">=</span> <span class="nx">dfl</span>
+		<span class="c1">// 跳到retc，这个时候没有recv执行，所以recvOK = false
+</span><span class="c1"></span>		<span class="k">goto</span> <span class="nx">retc</span>
+	<span class="p">}</span>
+
+	<span class="c1">// 没有recv/send就绪，也没有defaultcase
+</span><span class="c1"></span>	<span class="c1">// 就要第二次遍历scases，把所有的case对应的hchan都处理掉。
+</span><span class="c1"></span>	<span class="c1">// pass 2 - enqueue on all chans
+</span><span class="c1"></span>
+	<span class="c1">// 获得当前的goroutine指针gp
+</span><span class="c1"></span>	<span class="nx">gp</span> <span class="p">=</span> <span class="nf">getg</span><span class="p">()</span>
+	<span class="k">if</span> <span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nf">throw</span><span class="p">(</span><span class="s">&#34;gp.waiting != nil&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">nextp</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span>
+	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">casei</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">lockorder</span> <span class="p">{</span>
+		<span class="nx">casi</span> <span class="p">=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">casei</span><span class="p">)</span>
+		<span class="nx">cas</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">scases</span><span class="p">[</span><span class="nx">casi</span><span class="p">]</span>
+		<span class="c1">// 跳过不是send/recv的case
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseNil</span> <span class="p">{</span>
+			<span class="k">continue</span>
+		<span class="p">}</span>
+		<span class="nx">c</span> <span class="p">=</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">c</span>
+		<span class="c1">// 获得一个sudog，一个当前goroutine在阻塞等待队列的代理。
+</span><span class="c1"></span>		<span class="nx">sg</span> <span class="o">:=</span> <span class="nf">acquireSudog</span><span class="p">()</span>
+		<span class="c1">// 代理gp
+</span><span class="c1"></span>		<span class="nx">sg</span><span class="p">.</span><span class="nx">g</span> <span class="p">=</span> <span class="nx">gp</span>
+		<span class="c1">// mark当前等待是在select
+</span><span class="c1"></span>		<span class="nx">sg</span><span class="p">.</span><span class="nx">isSelect</span> <span class="p">=</span> <span class="kc">true</span>
+		<span class="c1">// No stack splits between assigning elem and enqueuing
+</span><span class="c1"></span>		<span class="c1">// sg on gp.waiting where copystack can find it.
+</span><span class="c1"></span>		<span class="nx">sg</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span>
+		<span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="mi">0</span>
+		<span class="k">if</span> <span class="nx">t0</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="nx">sg</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="o">-</span><span class="mi">1</span>
+		<span class="p">}</span>
+		<span class="nx">sg</span><span class="p">.</span><span class="nx">c</span> <span class="p">=</span> <span class="nx">c</span>
+		<span class="c1">// Construct waiting list in lock order.
+</span><span class="c1"></span>		<span class="c1">// 用nextp把所有的sudog构建成一个list
+</span><span class="c1"></span>		<span class="o">*</span><span class="nx">nextp</span> <span class="p">=</span> <span class="nx">sg</span>
+		<span class="nx">nextp</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">sg</span><span class="p">.</span><span class="nx">waitlink</span>
+
+		<span class="c1">// 根据send/recv塞进相应的等待队列
+</span><span class="c1"></span>		<span class="k">switch</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="p">{</span>
+		<span class="k">case</span> <span class="nx">caseRecv</span><span class="p">:</span>
+			<span class="nx">c</span><span class="p">.</span><span class="nx">recvq</span><span class="p">.</span><span class="nf">enqueue</span><span class="p">(</span><span class="nx">sg</span><span class="p">)</span>
+
+		<span class="k">case</span> <span class="nx">caseSend</span><span class="p">:</span>
+			<span class="nx">c</span><span class="p">.</span><span class="nx">sendq</span><span class="p">.</span><span class="nf">enqueue</span><span class="p">(</span><span class="nx">sg</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="c1">// gopark让goroutine让出执行，等待被别的goroutine唤醒
+</span><span class="c1"></span>	<span class="c1">// wait for someone to wake us up
+</span><span class="c1"></span>	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="nf">gopark</span><span class="p">(</span><span class="nx">selparkcommit</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">waitReasonSelect</span><span class="p">,</span> <span class="nx">traceEvGoBlockSelect</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">activeStackChans</span> <span class="p">=</span> <span class="kc">false</span>
+
+	<span class="c1">// 加锁，在我们被唤醒之后，hchans不能再有变化。
+</span><span class="c1"></span>	<span class="nf">sellock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span>
+
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">selectDone</span> <span class="p">=</span> <span class="mi">0</span>
+	<span class="c1">// 重建唤醒我们的sudog
+</span><span class="c1"></span>	<span class="nx">sg</span> <span class="p">=</span> <span class="p">(</span><span class="o">*</span><span class="nx">sudog</span><span class="p">)(</span><span class="nx">gp</span><span class="p">.</span><span class="nx">param</span><span class="p">)</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">param</span> <span class="p">=</span> <span class="kc">nil</span>
+
+	<span class="c1">// 这里一定有至少一个chan发生就绪
+</span><span class="c1"></span>
+	<span class="c1">// pass 3 - dequeue from unsuccessful chans
+</span><span class="c1"></span>	<span class="c1">// otherwise they stack up on quiet channels
+</span><span class="c1"></span>	<span class="c1">// record the successful case, if any.
+</span><span class="c1"></span>	<span class="c1">// We singly-linked up the SudoGs in lock order.
+</span><span class="c1"></span>	<span class="nx">casi</span> <span class="p">=</span> <span class="o">-</span><span class="mi">1</span>
+	<span class="nx">cas</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="c1">// 从gp.waiting里拿到之前构造的sudog的list
+</span><span class="c1"></span>	<span class="nx">sglist</span> <span class="p">=</span> <span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span>
+	<span class="c1">// Clear all elem before unlinking from gp.waiting.
+</span><span class="c1"></span>	<span class="c1">// 把等待的sudog的单向链表做一些整理操作，关联的chan和元素都置为nil
+</span><span class="c1"></span>	<span class="k">for</span> <span class="nx">sg1</span> <span class="o">:=</span> <span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span><span class="p">;</span> <span class="nx">sg1</span> <span class="o">!=</span> <span class="kc">nil</span><span class="p">;</span> <span class="nx">sg1</span> <span class="p">=</span> <span class="nx">sg1</span><span class="p">.</span><span class="nx">waitlink</span> <span class="p">{</span>
+		<span class="nx">sg1</span><span class="p">.</span><span class="nx">isSelect</span> <span class="p">=</span> <span class="kc">false</span>
+		<span class="nx">sg1</span><span class="p">.</span><span class="nx">elem</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="nx">sg1</span><span class="p">.</span><span class="nx">c</span> <span class="p">=</span> <span class="kc">nil</span>
+	<span class="p">}</span>
+	<span class="nx">gp</span><span class="p">.</span><span class="nx">waiting</span> <span class="p">=</span> <span class="kc">nil</span>
+
+	<span class="c1">// 按照lockorder的顺序遍历，我们在构造sudog waiting list的时候，也是按照lockorder的顺序构造的。
+</span><span class="c1"></span>	<span class="c1">// 所以我们这里可以按sudog waiting list的顺序，获得scase。
+</span><span class="c1"></span>	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">casei</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">lockorder</span> <span class="p">{</span>
+		<span class="nx">k</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">scases</span><span class="p">[</span><span class="nx">casei</span><span class="p">]</span>
+		<span class="k">if</span> <span class="nx">k</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseNil</span> <span class="p">{</span>
+			<span class="k">continue</span>
+		<span class="p">}</span>
+		<span class="k">if</span> <span class="nx">sglist</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+			<span class="nx">k</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">=</span> <span class="nx">sglist</span><span class="p">.</span><span class="nx">releasetime</span>
+		<span class="p">}</span>
+		<span class="c1">// sg 就是唤醒我们的sudog，这时与之对应的scase和下标分别就是k和casei。
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nx">sg</span> <span class="o">==</span> <span class="nx">sglist</span> <span class="p">{</span>
+			<span class="c1">// sg has already been dequeued by the G that woke us up.
+</span><span class="c1"></span>			<span class="nx">casi</span> <span class="p">=</span> <span class="nb">int</span><span class="p">(</span><span class="nx">casei</span><span class="p">)</span>
+			<span class="nx">cas</span> <span class="p">=</span> <span class="nx">k</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+			<span class="c1">// 简单的把sglist指向的sudog从hchan的阻塞队列里移除。
+</span><span class="c1"></span>			<span class="nx">c</span> <span class="p">=</span> <span class="nx">k</span><span class="p">.</span><span class="nx">c</span>
+			<span class="k">if</span> <span class="nx">k</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseSend</span> <span class="p">{</span>
+				<span class="nx">c</span><span class="p">.</span><span class="nx">sendq</span><span class="p">.</span><span class="nf">dequeueSudoG</span><span class="p">(</span><span class="nx">sglist</span><span class="p">)</span>
+			<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+				<span class="nx">c</span><span class="p">.</span><span class="nx">recvq</span><span class="p">.</span><span class="nf">dequeueSudoG</span><span class="p">(</span><span class="nx">sglist</span><span class="p">)</span>
+			<span class="p">}</span>
+		<span class="p">}</span>
+		<span class="c1">// 释放sglist指向的sudog，把sglist指向列表的下一个元素
+</span><span class="c1"></span>		<span class="nx">sgnext</span> <span class="p">=</span> <span class="nx">sglist</span><span class="p">.</span><span class="nx">waitlink</span>
+		<span class="nx">sglist</span><span class="p">.</span><span class="nx">waitlink</span> <span class="p">=</span> <span class="kc">nil</span>
+		<span class="nf">releaseSudog</span><span class="p">(</span><span class="nx">sglist</span><span class="p">)</span>
+		<span class="nx">sglist</span> <span class="p">=</span> <span class="nx">sgnext</span>
+	<span class="p">}</span>
+
+	<span class="c1">// 这里主要是代码重用，当select中的chan因为关闭，而把我们唤醒了，这个时候cas就会等于nil，
+</span><span class="c1"></span>	<span class="c1">// 这时代码跳到loop，就足以处理这种情况，所以就直接跳到loop了。
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">cas</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="c1">// We can wake up with gp.param == nil (so cas == nil)
+</span><span class="c1"></span>		<span class="c1">// when a channel involved in the select has been closed.
+</span><span class="c1"></span>		<span class="c1">// It is easiest to loop and re-run the operation;
+</span><span class="c1"></span>		<span class="c1">// we&#39;ll see that it&#39;s now closed.
+</span><span class="c1"></span>		<span class="c1">// Maybe some day we can signal the close explicitly,
+</span><span class="c1"></span>		<span class="c1">// but we&#39;d have to distinguish close-on-reader from close-on-writer.
+</span><span class="c1"></span>		<span class="c1">// It&#39;s easiest not to duplicate the code and just recheck above.
+</span><span class="c1"></span>		<span class="c1">// We know that something closed, and things never un-close,
+</span><span class="c1"></span>		<span class="c1">// so we won&#39;t block again.
+</span><span class="c1"></span>		<span class="k">goto</span> <span class="nx">loop</span>
+	<span class="p">}</span>
+
+	<span class="c1">// 保持一个当前操作的scase的hchan的句柄
+</span><span class="c1"></span>	<span class="nx">c</span> <span class="p">=</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">c</span>
+
+	<span class="k">if</span> <span class="nx">debugSelect</span> <span class="p">{</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s">&#34;wait-return: cas0=&#34;</span><span class="p">,</span> <span class="nx">cas0</span><span class="p">,</span> <span class="s">&#34; c=&#34;</span><span class="p">,</span> <span class="nx">c</span><span class="p">,</span> <span class="s">&#34; cas=&#34;</span><span class="p">,</span> <span class="nx">cas</span><span class="p">,</span> <span class="s">&#34; kind=&#34;</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="c1">// 那么现在我们有了唤醒我们并且就绪的send/recv scase分支
+</span><span class="c1"></span>
+	<span class="c1">// 如果是recv，mark recvOK = true
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseRecv</span> <span class="p">{</span>
+		<span class="nx">recvOK</span> <span class="p">=</span> <span class="kc">true</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseRecv</span> <span class="o">&amp;&amp;</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nf">raceWriteObjectPC</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">pc</span><span class="p">,</span> <span class="nx">chanrecvpc</span><span class="p">)</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseSend</span> <span class="p">{</span>
+			<span class="nf">raceReadObjectPC</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">pc</span><span class="p">,</span> <span class="nx">chansendpc</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">msanenabled</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseRecv</span> <span class="o">&amp;&amp;</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nf">msanwrite</span><span class="p">(</span><span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">kind</span> <span class="o">==</span> <span class="nx">caseSend</span> <span class="p">{</span>
+			<span class="nf">msanread</span><span class="p">(</span><span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span>
+	<span class="c1">// 跳到retc，可以返回了，返回值都已经准备就绪了。
+</span><span class="c1"></span>	<span class="k">goto</span> <span class="nx">retc</span>
+
+<span class="nx">bufrecv</span><span class="p">:</span>
+	<span class="c1">// can receive from buffer
+</span><span class="c1"></span>	<span class="c1">// 有recv的chan就绪
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="nf">raceWriteObjectPC</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">pc</span><span class="p">,</span> <span class="nx">chanrecvpc</span><span class="p">)</span>
+		<span class="p">}</span>
+		<span class="nf">raceacquire</span><span class="p">(</span><span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="p">))</span>
+		<span class="nf">racerelease</span><span class="p">(</span><span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="p">))</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">msanenabled</span> <span class="o">&amp;&amp;</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nf">msanwrite</span><span class="p">(</span><span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="c1">// 标记有receive
+</span><span class="c1"></span>	<span class="nx">recvOK</span> <span class="p">=</span> <span class="kc">true</span>
+	<span class="c1">// 根据`c.recvx`接收索引指向，拿到chan的缓存槽
+</span><span class="c1"></span>	<span class="nx">qp</span> <span class="p">=</span> <span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="c1">// 如果有变量等待接收消息，而不是丢弃，那么就typedmemmove把消息从缓存槽copy到cas.elem
+</span><span class="c1"></span>		<span class="nf">typedmemmove</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="c1">// 清除缓存然后移动recvx
+</span><span class="c1"></span>	<span class="nf">typedmemclr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">qp</span><span class="p">)</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span><span class="o">++</span>
+	<span class="c1">// recvx必要的roundtrip
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="o">==</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">recvx</span> <span class="p">=</span> <span class="mi">0</span>
+	<span class="p">}</span>
+	<span class="c1">// 减小buf计数器
+</span><span class="c1"></span>	<span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span><span class="o">--</span>
+	<span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span>
+	<span class="c1">// 可以return了
+</span><span class="c1"></span>	<span class="k">goto</span> <span class="nx">retc</span>
+
+<span class="nx">bufsend</span><span class="p">:</span>
+	<span class="c1">// can send to buffer
+</span><span class="c1"></span>	<span class="c1">// 有buffered chan就绪
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nf">raceacquire</span><span class="p">(</span><span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span><span class="p">))</span>
+		<span class="nf">racerelease</span><span class="p">(</span><span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span><span class="p">))</span>
+		<span class="nf">raceReadObjectPC</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">pc</span><span class="p">,</span> <span class="nx">chansendpc</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">msanenabled</span> <span class="p">{</span>
+		<span class="nf">msanread</span><span class="p">(</span><span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="c1">// 根据c.sendx指向的发送缓存操，把cas.elem塞进去
+</span><span class="c1"></span>	<span class="nf">typedmemmove</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nf">chanbuf</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span><span class="p">),</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">)</span>
+	<span class="c1">// 移动sendx
+</span><span class="c1"></span>	<span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span><span class="o">++</span>
+	<span class="c1">// sendx的roundtrip
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span> <span class="o">==</span> <span class="nx">c</span><span class="p">.</span><span class="nx">dataqsiz</span> <span class="p">{</span>
+		<span class="nx">c</span><span class="p">.</span><span class="nx">sendx</span> <span class="p">=</span> <span class="mi">0</span>
+	<span class="p">}</span>
+	<span class="c1">// 增加缓存计数器
+</span><span class="c1"></span>	<span class="nx">c</span><span class="p">.</span><span class="nx">qcount</span><span class="o">++</span>
+	<span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span>
+	<span class="c1">// 可以返回了
+</span><span class="c1"></span>	<span class="k">goto</span> <span class="nx">retc</span>
+
+<span class="nx">recv</span><span class="p">:</span>
+	<span class="c1">// can receive from sleeping sender (sg)
+</span><span class="c1"></span>	<span class="c1">// chan上有阻塞的send操作，要么是一个不带buffer的要么是一个带buffer但是buffer塞满了的chan
+</span><span class="c1"></span>	<span class="c1">// func recv处理这些情况，正确的接收chan上的消息
+</span><span class="c1"></span>	<span class="c1">// 可以参考chan.go里面的recv注释
+</span><span class="c1"></span>	<span class="nf">recv</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">sg</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span> <span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span> <span class="p">},</span> <span class="mi">2</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">debugSelect</span> <span class="p">{</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s">&#34;syncrecv: cas0=&#34;</span><span class="p">,</span> <span class="nx">cas0</span><span class="p">,</span> <span class="s">&#34; c=&#34;</span><span class="p">,</span> <span class="nx">c</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="c1">// mark
+</span><span class="c1"></span>	<span class="nx">recvOK</span> <span class="p">=</span> <span class="kc">true</span>
+	<span class="k">goto</span> <span class="nx">retc</span>
+
+<span class="nx">rclose</span><span class="p">:</span>
+	<span class="c1">// read at end of closed channel
+</span><span class="c1"></span>	<span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span>
+	<span class="nx">recvOK</span> <span class="p">=</span> <span class="kc">false</span>
+	<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nf">typedmemclr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nf">raceacquire</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">raceaddr</span><span class="p">())</span>
+	<span class="p">}</span>
+	<span class="k">goto</span> <span class="nx">retc</span>
+
+<span class="nx">send</span><span class="p">:</span>
+	<span class="c1">// can send to a sleeping receiver (sg)
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">raceenabled</span> <span class="p">{</span>
+		<span class="nf">raceReadObjectPC</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">pc</span><span class="p">,</span> <span class="nx">chansendpc</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">msanenabled</span> <span class="p">{</span>
+		<span class="nf">msanread</span><span class="p">(</span><span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="nx">c</span><span class="p">.</span><span class="nx">elemtype</span><span class="p">.</span><span class="nx">size</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nf">send</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">sg</span><span class="p">,</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">elem</span><span class="p">,</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span> <span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span> <span class="p">},</span> <span class="mi">2</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">debugSelect</span> <span class="p">{</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s">&#34;syncsend: cas0=&#34;</span><span class="p">,</span> <span class="nx">cas0</span><span class="p">,</span> <span class="s">&#34; c=&#34;</span><span class="p">,</span> <span class="nx">c</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">goto</span> <span class="nx">retc</span>
+
+<span class="nx">retc</span><span class="p">:</span>
+	<span class="k">if</span> <span class="nx">cas</span><span class="p">.</span><span class="nx">releasetime</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nf">blockevent</span><span class="p">(</span><span class="nx">cas</span><span class="p">.</span><span class="nx">releasetime</span><span class="o">-</span><span class="nx">t0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">casi</span><span class="p">,</span> <span class="nx">recvOK</span>
+
+<span class="nx">sclose</span><span class="p">:</span>
+	<span class="c1">// send on closed channel
+</span><span class="c1"></span>	<span class="nf">selunlock</span><span class="p">(</span><span class="nx">scases</span><span class="p">,</span> <span class="nx">lockorder</span><span class="p">)</span>
+	<span class="nb">panic</span><span class="p">(</span><span class="nf">plainError</span><span class="p">(</span><span class="s">&#34;send on closed channel&#34;</span><span class="p">))</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div></div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>更新于 2020-06-08</span>
+            </div>
+            <div class="post-info-license"></div>
+        </div>
+        <div class="post-info-line">
+            <div class="post-info-md"><span>
+                            <a class="link-to-markdown" href="/go-select/index.md" target="_blank">阅读原始文档</a>
+                        </span></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="分享到 Twitter" data-sharer="twitter" data-url="https://kyli.fun/go-select/" data-title="Golang Select源码阅读笔记" data-hashtags="golang,runtime,select,源码阅读"><i class="fab fa-twitter fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Facebook" data-sharer="facebook" data-url="https://kyli.fun/go-select/" data-hashtag="golang"><i class="fab fa-facebook-square fa-fw"></i></a><a href="javascript:void(0);" title="分享到 WhatsApp" data-sharer="whatsapp" data-url="https://kyli.fun/go-select/" data-title="Golang Select源码阅读笔记" data-web><i class="fab fa-whatsapp fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Line" data-sharer="line" data-url="https://kyli.fun/go-select/" data-title="Golang Select源码阅读笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/line.svg"></i></a><a href="javascript:void(0);" title="分享到 微博" data-sharer="weibo" data-url="https://kyli.fun/go-select/" data-title="Golang Select源码阅读笔记" data-image="/images/go-select/gopher-select.jpg"><i class="fab fa-weibo fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Myspace" data-sharer="myspace" data-url="https://kyli.fun/go-select/" data-title="Golang Select源码阅读笔记" data-description="之前已经读过了&#34;new三剑客&#34;。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗&lt;i class=&#34;fa fa-dog&#34;&gt;&lt;/i&gt;。"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@2.14.0/icons/myspace.svg"></i></a><a href="javascript:void(0);" title="分享到 Blogger" data-sharer="blogger" data-url="https://kyli.fun/go-select/" data-title="Golang Select源码阅读笔记" data-description="之前已经读过了&#34;new三剑客&#34;。尤其是其中的channel，既然看过了channel，那么select这个结构，是不可能放过的。平时写业务代码的时候，select用的熟不熟，可以看得出是不是一个老狗&lt;i class=&#34;fa fa-dog&#34;&gt;&lt;/i&gt;。"><i class="fab fa-blogger fa-fw"></i></a><a href="javascript:void(0);" title="分享到 Evernote" data-sharer="evernote" data-url="https://kyli.fun/go-select/" data-title="Golang Select源码阅读笔记"><i class="fab fa-evernote fa-fw"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"><i class="fas fa-tags fa-fw"></i>&nbsp;<a href="/tags/golang/">golang</a>,&nbsp;<a href="/tags/runtime/">runtime</a>,&nbsp;<a href="/tags/select/">select</a>,&nbsp;<a href="/tags/%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">源码阅读</a></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">返回</a></span>&nbsp;|&nbsp;<span><a href="/">主页</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/go-slice/" class="prev" rel="prev" title="Golang Slice源码阅读笔记"><i class="fas fa-angle-left fa-fw"></i>Golang Slice源码阅读笔记</a>
+            <a href="/emacs-im/" class="next" rel="next" title="终于可以在Emacs下调用Fcitx打拼音了">终于可以在Emacs下调用Fcitx打拼音了<i class="fas fa-angle-right fa-fw"></i></a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Hired by Y2Labs</div><div class="footer-line">由 <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.74.0-DEV">Hugo</a> 强力驱动 | 主题 - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.10"><i class="far fa-kiss-wink-heart fa-fw"></i> LoveIt</a>
+                </div><div class="footer-line"><i class="far fa-copyright fa-fw"></i><span itemprop="copyrightYear">2020</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="https://kyli.fun" target="_blank">Kyli Bing</a></span>&nbsp;|&nbsp;<span class="license"><a rel="license external nofollow noopener noreffer" href="https://www.mit.edu/~amini/LICENSE.md" target="_blank">MIT</a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="回到顶部">
+                <i class="fas fa-arrow-up fa-fw"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="查看评论">
+                <i class="fas fa-comment fa-fw"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/smooth-scroll@16.1.3/dist/smooth-scroll.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/autocomplete.js@0.37.1/dist/autocomplete.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/algoliasearch@4.2.0/dist/algoliasearch-lite.umd.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.2.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.6/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.4.0/sharer.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/typeit@7.0.4/dist/typeit.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"复制到剪贴板","maxShownLines":10},"comment":{},"data":{"id-1":"Gopher/Rustacean","id-2":"Gopher/Rustacean"},"search":{"algoliaAppID":"","algoliaIndex":"index.zh-cn","algoliaSearchKey":"","highlightTag":"em","maxResultLength":10,"noResultsFound":"没有找到结果","snippetLength":50,"type":"algolia"},"typeit":{"cursorChar":"|","cursorSpeed":1000,"data":{"id-1":["id-1"],"id-2":["id-2"]},"duration":-1,"speed":100}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>
